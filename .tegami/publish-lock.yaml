@@ -1,48 +1,46 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@rozumari/api:\n    type: patch\n  npm:@rozumari/ui:\n    type: patch\n  npm:@rozumari/firmware:\n    type: patch\n---\n\n## Patch Change\n\n- Add GitHub Actions workflow to build and publish MicroPython firmware for Raspberry Pi Pico 2 W.\n- Bump dependencies across packages.\n"
-    filename: 2026-11-17-mwkg5pdn.md
+  - content: "---\npackages:\n  npm:@rozumari/mobile:\n    type: patch\n  npm:@rozumari/firmware:\n    type: patch\n---\n\n## Patch Changes\n\n- Trigger build\n"
+    filename: 2026-11-25-mwvfbbt4.md
     v: 0.0.0
 core:packages:
   - id: npm:rozumari
     updated: false
-  - id: npm:@rozumari/eda
-    updated: false
-  - changelogIds:
-      - 2026-11-17-mwkg5pdn.md
-    id: npm:@rozumari/api
-    updated: true
-  - id: npm:@rozumari/mobile
-    updated: true
-  - changelogIds:
-      - 2026-11-17-mwkg5pdn.md
-    id: npm:@rozumari/firmware
-    updated: true
-  - id: npm:@rozumari/web
-    updated: true
-  - changelogIds:
-      - 2026-11-17-mwkg5pdn.md
-    id: npm:@rozumari/ui
-    updated: true
-  - id: npm:@rozumari/tsconfig
-    updated: false
   - id: npm:@rozumari/oxlint
     updated: false
   - id: npm:@rozumari/github
     updated: false
+  - id: npm:@rozumari/api
+    updated: false
+  - changelogIds:
+      - 2026-11-25-mwvfbbt4.md
+    id: npm:@rozumari/mobile
+    updated: true
+  - id: npm:@rozumari/web
+    updated: false
+  - changelogIds:
+      - 2026-11-25-mwvfbbt4.md
+    id: npm:@rozumari/firmware
+    updated: true
   - id: npm:@rozumari/lib
     updated: false
   - id: npm:@rozumari/contract
+    updated: false
+  - id: npm:@rozumari/tsconfig
+    updated: false
+  - id: npm:@rozumari/ui
+    updated: false
+  - id: npm:@rozumari/eda
     updated: false
 npm:packages:
   - id: npm:rozumari
-  - id: npm:@rozumari/eda
-  - id: npm:@rozumari/api
-  - id: npm:@rozumari/mobile
-  - id: npm:@rozumari/firmware
-  - id: npm:@rozumari/web
-  - id: npm:@rozumari/ui
-  - id: npm:@rozumari/tsconfig
   - id: npm:@rozumari/oxlint
   - id: npm:@rozumari/github
+  - id: npm:@rozumari/api
+  - id: npm:@rozumari/mobile
+  - id: npm:@rozumari/web
+  - id: npm:@rozumari/firmware
   - id: npm:@rozumari/lib
   - id: npm:@rozumari/contract
+  - id: npm:@rozumari/tsconfig
+  - id: npm:@rozumari/ui
+  - id: npm:@rozumari/eda
