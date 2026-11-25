@@ -1,3 +1,10 @@
+## @rozumari/firmware@0.2.5
+
+### Patch Change
+
+- Add GitHub Actions workflow to build and publish MicroPython firmware for Raspberry Pi Pico 2 W.
+- Bump dependencies across packages.
+
 ## @rozumari/firmware@0.2.4
 
 ### Bug Fixes
