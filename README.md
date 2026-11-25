@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=apps%2Fmobile%2Fpackage.json&label=%40rozumari%2Fmobile" alt="Version Mobile">
   </a>
   <a href="https://github.com/yuurei-labs/rozumari/releases?q=%22%40rozumari%2Ffirmware%22&expanded=true">
-    <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=apps%2Ffirmware%2Fpackage.json&label=%40rozumari%2Ffirmware" alt="Version Firmware">
+    <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=packages%2Ffirmware%2Fpackage.json&label=%40rozumari%2Ffirmware" alt="Version Firmware">
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/github/license/yuurei-labs/rozumari" alt="License">
