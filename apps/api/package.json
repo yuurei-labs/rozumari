@@ -22,7 +22,7 @@
     "@rozumari/contract": "workspace:*",
     "@rozumari/lib": "workspace:*",
     "@vercel/functions": "^3.11.3",
-    "ai": "^7.0.173",
+    "ai": "^7.0.181",
     "chat": "^4.45.0",
     "drizzle-orm": "^1.0.0-rc.5",
     "effect": "catalog:effect"

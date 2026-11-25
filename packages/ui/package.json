@@ -34,11 +34,11 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "date-fns": "^4.4.0",
-    "lucide-react": "^1.74.0",
-    "lucide-react-native": "^1.74.0",
+    "lucide-react": "^1.79.0",
+    "lucide-react-native": "^1.79.0",
     "react-day-picker": "^10.0.2",
     "react-native": "catalog:react",
-    "recharts": "3.10.1"
+    "recharts": "3.11.1"
   },
   "devDependencies": {
     "@rozumari/oxlint": "workspace:*",
