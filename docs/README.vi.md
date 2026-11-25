@@ -1,25 +1,22 @@
-[English](https://gitlab.com/tiesen243/rozumari/blob/dev/docs/README.en.md) | [Tiếng Việt](https://gitlab.com/tiesen243/rozumari/blob/dev/docs/README.vi.md)
+[English](./README.en.md) | [Tiếng Việt](./README.vi.md)
 
 # Rozumari (ローズマリー): Thiết kế hộp thuốc thông minh hỗ trợ người già và trẻ nhỏ
 
 <p align="center">
-  <a href="https://gitlab.com/tiesen243/rozumari/-/releases">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgitlab.com%2Ftiesen243%2Frozumari%2F-%2Fraw%2Fdev%2Fapps%2Fapi%2Fpackage.json&query=version&label=version%40api" alt="Version API">
+  <a href="https://github.com/yuurei-labs/rozumari/releases?q=%22%40rozumari%2Fapi%22&expanded=true">
+    <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=apps%2Fapi%2Fpackage.json&label=%40rozumari%2Fapi" alt="Version API">
   </a>
-  <a href="https://gitlab.com/tiesen243/rozumari/-/releases">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgitlab.com%2Ftiesen243%2Frozumari%2F-%2Fraw%2Fdev%2Fapps%2Fweb%2Fpackage.json&query=version&label=version%40web" alt="Version Web">
+  <a href="https://github.com/yuurei-labs/rozumari/releases?q=%22%40rozumari%2Fweb%22&expanded=true">
+    <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=apps%2Fweb%2Fpackage.json&label=%40rozumari%2Fweb" alt="Version Web">
   </a>
-  <a href="https://gitlab.com/tiesen243/rozumari/-/releases">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgitlab.com%2Ftiesen243%2Frozumari%2F-%2Fraw%2Fdev%2Fapps%2Fmobile%2Fpackage.json&query=version&label=version%40mobile" alt="Version Mobile">
+  <a href="https://github.com/yuurei-labs/rozumari/releases?q=%22%40rozumari%2Fmobile%22&expanded=true">
+    <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=apps%2Fmobile%2Fpackage.json&label=%40rozumari%2Fmobile" alt="Version Mobile">
   </a>
-  <a href="https://gitlab.com/tiesen243/rozumari/-/releases">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgitlab.com%2Ftiesen243%2Frozumari%2F-%2Fraw%2Fdev%2Fpackages%2Ffirmware%2Fpackage.json&query=version&label=version%40firmware" alt="Version Firmware">
-  </a>
-  <a href="https://gitlab.com/tiesen243/rozumari/-/releases">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgitlab.com%2Ftiesen243%2Frozumari%2F-%2Fraw%2Fdev%2Fpackages%2Feda%2Fpackage.json&query=version&label=version%40eda" alt="Version EDA">
+  <a href="https://github.com/yuurei-labs/rozumari/releases?q=%22%40rozumari%2Ffirmware%22&expanded=true">
+    <img src="https://img.shields.io/github/package-json/v/yuurei-labs/rozumari?filename=apps%2Ffirmware%2Fpackage.json&label=%40rozumari%2Ffirmware" alt="Version Firmware">
   </a>
   <a href="LICENSE">
-    <img src="https://img.shields.io/gitlab/license/tiesen243/rozumari" alt="License">
+    <img src="https://img.shields.io/github/license/yuurei-labs/rozumari" alt="License">
   </a>
 </p>
 
@@ -91,4 +88,4 @@ Hệ thống **Rozumari** mang đến một giải pháp toàn diện kết hợ
 
 ## Giấy phép
 
-Dự án này là mã nguồn mở và được phát hành theo Apache License 2.0. Xem file [LICENSE](https://gitlab.com/tiesen243/rozumari/blob/dev/LICENSE) để biết thêm chi tiết.
+Dự án này là mã nguồn mở và được phát hành theo Apache License 2.0. Xem file [LICENSE](../LICENSE) để biết thêm chi tiết.

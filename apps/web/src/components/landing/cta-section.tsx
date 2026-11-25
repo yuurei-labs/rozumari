@@ -33,7 +33,7 @@ export function CtaSection() {
             nativeButton={false}
             render={
               <a
-                href='https://github.com/tiesen243/rozumari/releases?q=%22%40rozumari%2Fmobile%22&expanded=true'
+                href='https://github.com/yuurei-labs/rozumari/releases?q=%22%40rozumari%2Fmobile%22&expanded=true'
                 target='_blank'
                 rel='noopener noreferrer'
                 aria-label='Download mobile app'

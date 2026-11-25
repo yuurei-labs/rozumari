@@ -1,4 +1,4 @@
-[English](https://gitlab.com/tiesen243/rozumari/blob/dev/docs/CONTRIBUTING.md) | [Tiếng Việt](https://gitlab.com/tiesen243/rozumari/blob/dev/docs/CONTRIBUTING.vi.md)
+[English](./CONTRIBUTING.md) | [Tiếng Việt](./CONTRIBUTING.vi.md)
 
 # Contributing to project
 
@@ -8,14 +8,14 @@ As this project involves both **Hardware (Mechanical/Circuitry)** and **Software
 
 ## 1. Before You Start
 
-Before making any changes, please check the [Issues](https://gitlab.com/your-username/your-repo/issues) list:
+Before making any changes, please check the [Issues](https://github.com/yuurei-labs/rozumari/issues) list:
 
 - **If an issue exists:** Leave a comment letting us know you are working on it to avoid duplicated effort.
-- **If no issue exists:** Please [open a new issue](https://gitlab.com/tiesen243/rozumari/issues/new/choose) first to describe the bug you found or the feature you are proposing.
+- **If no issue exists:** Please [open a new issue](https://github.com/yuurei-labs/rozumari/issues/new/choose) first to describe the bug you found or the feature you are proposing.
 
 ## 2. Our Development Process
 
-1. **Fork** the repository to your own gitlab account.
+1. **Fork** the repository to your own github account.
 2. **Clone** the fork to your local machine.
 3. Implement your changes and **Commit** them (see Commit Message Standards below).
 4. **Push** to your fork and submit a **Pull Request (PR)** to our `dev` branch.
