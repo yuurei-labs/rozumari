@@ -1,4 +1,4 @@
-[English](https://gitlab.com/tiesen243/rozumari/blob/dev/docs/CONTRIBUTING.md) | [Tiếng Việt](https://gitlab.com/tiesen243/rozumari/blob/dev/docs/CONTRIBUTING.vi.md)
+[English](./CONTRIBUTING.md) | [Tiếng Việt](./CONTRIBUTING.vi.md)
 
 # Hướng dẫn đóng góp cho dự án
 
@@ -8,14 +8,14 @@ Vì dự án này bao gồm cả **Phần cứng (Cơ khí/Mạch điện)** và
 
 ## 1. Trước khi bắt đầu
 
-Trước khi thực hiện bất kỳ thay đổi nào, vui lòng kiểm tra danh sách [Issues](https://gitlab.com/your-username/your-repo/issues):
+Trước khi thực hiện bất kỳ thay đổi nào, vui lòng kiểm tra danh sách [Issues](https://github.com/yuurei-labs/rozumari/issues):
 
 - **Nếu đã có issue:** Hãy để lại bình luận cho chúng tôi biết bạn đang làm việc với issue đó để tránh việc trùng lặp công sức.
-- **Nếu chưa có issue:** Vui lòng [mở một issue mới](https://gitlab.com/tiesen243/rozumari/issues/new/choose) trước để mô tả lỗi bạn tìm thấy hoặc tính năng bạn đang đề xuất.
+- **Nếu chưa có issue:** Vui lòng [mở một issue mới](https://github.com/yuurei-labs/rozumari/issues/new/choose) trước để mô tả lỗi bạn tìm thấy hoặc tính năng bạn đang đề xuất.
 
 ## 2. Quy trình phát triển
 
-1. **Fork** kho lưu trữ (repository) về tài khoản gitlab của riêng bạn.
+1. **Fork** kho lưu trữ (repository) về tài khoản github của riêng bạn.
 2. **Clone** bản fork đó về máy tính cục bộ của bạn.
 3. Thực hiện các thay đổi của bạn và **Commit** chúng (xem Tiêu chuẩn viết Commit Message bên dưới).
 4. **Push** lên bản fork của bạn và gửi một **Pull Request (PR)** vào nhánh `dev` của chúng tôi.

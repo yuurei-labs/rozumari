@@ -89,7 +89,7 @@ export class AppModule {
           version: pkgJson.version,
           license: {
             name: 'Apache-2.0',
-            url: 'https://raw.githubusercontent.com/tiesen243/rozumari/refs/heads/dev/LICENSE',
+            url: 'https://raw.githubusercontent.com/yuurei-labs/rozumari/refs/heads/dev/LICENSE',
           },
         })
       ),
