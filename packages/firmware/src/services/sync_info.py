@@ -1,42 +1,22 @@
 from lib.api import Api
-from lib.config import Config
-from lib.i18n import t
+from lib.singleton import Singleton
 
 
-class SyncInfo:
-    __instance: SyncInfo | None = None
+class SyncInfo(Singleton):
+    def __init__(self) -> None:
+        super().__init__()
+        self._api = Api()
 
-    _api: Api
+        self._data: dict = {}
 
-    def __init__(self):
-        self._api = Api.create()
+    @property
+    def data(self) -> dict:
+        return self._data
 
     async def execute(self) -> bool:
-        """
-        Fetch the latest information from the server and update the local configuration.
-
-        Returns:
-            True if the information was successfully updated, False otherwise.
-        """
-        config = Config.create()
-
         resp = await self._api.get("/api/devices/info")
-        if resp.get("error") is not None:
-            print(t("sync_info.error", error=resp.get("error")))
+        if not resp or not resp["data"]:
             return False
 
-        data = resp.get("data", {}).copy()
-        data.pop("compartments", None)
-
-        if config.set("device", data):
-            print(t("sync_info.updated"))
-            return True
-        else:
-            print(t("sync_info.failed"))
-            return False
-
-    @classmethod
-    def create(cls) -> SyncInfo:
-        if cls.__instance is None:
-            cls.__instance = SyncInfo()
-        return cls.__instance
+        self._data = resp["data"]
+        return True

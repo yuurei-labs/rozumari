@@ -1,257 +1,153 @@
+try:
+    from collections.abc import Awaitable, Callable
+except:
+    pass
+
 import asyncio
-import gc
 import json
 
 from lib.config import Config
-from lib.i18n import t
+from lib.logger import Logger
+from lib.singleton import Singleton
 
 
-class Api:
-    __instance: Api | None = None
-
-    _base_url: str
-    _base_headers: dict
-
+class Api(Singleton):
     def __init__(self) -> None:
-        config = Config.create()
-        api_config: dict = config.get("api", {})
+        super().__init__()
+        self._logger = Logger("API")
 
-        self._base_url = api_config.get("url", "")
-        self._base_headers = {
-            "Authorization": f"Bearer {api_config.get('token')}",
-            "x-vercel-protection-bypass": api_config.get("bypass_token"),
-            "Content-Type": "application/json",
+        config = Config().api
+        self._base_url = config.get("url")
+        self._api_key = config.get("token")
+
+    async def request(self, path: str, method: str, data: dict | None = None) -> dict:
+        body = json.dumps(data) if data is not None else None
+        reader, writer = await self._open_stream(path, method, body)
+
+        try:
+            raw = await reader.read()
+            return json.loads(raw.decode("utf-8")) if raw else {}
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    async def get(self, path: str, query: dict | None = None) -> dict:
+        if query:
+            params = "&".join(f"{k}={v}" for k, v in query.items())
+            path = f"{path}?{params}"
+        return await self.request(path, "GET")
+
+    async def post(self, path: str, body: dict | None = None) -> dict:
+        return await self.request(path, "POST", body)
+
+    async def subcribe(
+        self, path: str, on_data: "Callable[[str],Awaitable[None]]", timeout: int = 10
+    ) -> None:
+        headers = {
+            "Accept": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
         }
 
-    async def _request(
-        self, method: str, endpoint: str, body: dict | None = None
-    ) -> dict:
-        """
-        Make an HTTP request to the specified endpoint with the given method and body.
+        while True:
+            writer = None
 
-        Args:
-            method: The HTTP method (e.g., 'GET', 'POST').
-            endpoint: The API endpoint to send the request to.
-            body: The request body as a dictionary (for POST requests).
-
-        Returns:
-            A dictionary containing the response data or an error message.
-        """
-        url = f"{self._base_url}{endpoint}"
-        proto, host, port, path = self._parse_url(url)
-        ssl = {"ssl": True} if proto == "https" else {}
-        reader, writer = None, None
-
-        try:
-            _ = gc.collect()
-            reader, writer = await asyncio.open_connection(host, port, **ssl)
-
-            payload = json.dumps(body) if body is not None else None
-            payload_bytes = payload.encode("utf-8") if payload is not None else None
-
-            req_lines = [
-                f"{method.upper()} {path} HTTP/1.1",
-                f"Host: {host}",
-                "Connection: close",
-            ]
-
-            if payload_bytes is not None:
-                req_lines.append(f"Content-Length: {len(payload_bytes)}")
-
-            for key, val in self._base_headers.items():
-                req_lines.append(f"{key}: {val}")
-
-            req_data = "\r\n".join(req_lines) + "\r\n\r\n"
-            if payload_bytes is not None:
-                req_data += payload_bytes.decode("utf-8")
-
-            writer.write(req_data.encode("utf-8"))
-            await writer.drain()
-
-            status_line = await reader.readline()
-            if not status_line:
-                return {"error": "No response"}
-
-            parts = status_line.decode("utf-8").split(" ")
-            status_code = int(parts[1]) if len(parts) > 1 else 500
-
-            while True:
-                line = await reader.readline()
-                if line in (b"\r\n", b"\n", b""):
-                    break
-
-            body_bytes = await reader.read()
-            if status_code not in (200, 201):
-                return {"error": f"Status code: {status_code}"}
-
-            return json.loads(body_bytes.decode("utf-8"))
-
-        except Exception as e:
-            return {"error": str(e)}
-        finally:
-            if writer:
-                try:
-                    writer.close()
-                    await writer.wait_closed()
-                except Exception:
-                    pass
-
-            _ = gc.collect()
-
-    async def get(self, endpoint: str, params: dict | None = None) -> dict:
-        """
-        Make a GET request to the specified endpoint with optional query parameters.
-
-        Args:
-            endpoint: The API endpoint to send the request to.
-            params: A dictionary of query parameters to include in the request.
-
-        Returns:
-            A dictionary containing the response data or an error message.
-        """
-        if params:
-            query_string = "&".join(f"{key}={value}" for key, value in params.items())
-            endpoint = f"{endpoint}?{query_string}"
-
-        return await self._request("GET", endpoint)
-
-    async def post(self, endpoint: str, data: dict | None = None) -> dict:
-        """
-        Make a POST request to the specified endpoint with optional JSON data.
-
-        Args:
-            endpoint: The API endpoint to send the request to.
-            data: A dictionary of data to include in the request body.
-
-        Returns:
-            A dictionary containing the response data or an error message.
-        """
-        return await self._request("POST", endpoint, body=data)
-
-    async def stream(
-        self, endpoint: str, callback, timeout: int = 30, on_connect=None
-    ) -> None:
-        """
-        Establish a Server-Sent Events (SSE) connection to the specified endpoint and process incoming events.
-
-        Args:
-            endpoint: The API endpoint to connect to for SSE.
-            callback: A callable that will be invoked for each incoming event line.
-            timeout: The maximum time (in seconds) to wait for incoming events before raising a timeout
-            on_connect: An optional callable that will be invoked when the connection is established.
-
-        Raises:
-            ConnectionError: If there is an issue with the SSE connection or if the server closes the
-            connection unexpectedly.
-        """
-        url = f"{self._base_url}{endpoint}"
-        proto, host, port, path = self._parse_url(url)
-        ssl = {"ssl": True} if proto == "https" else {}
-        reader, writer = None, None
-
-        try:
-            _ = gc.collect()
-            reader, writer = await asyncio.open_connection(host, port, **ssl)
-
-            req_lines = [
-                f"GET {path} HTTP/1.1",
-                f"Host: {host}",
-                "Accept: text/event-stream",
-                "Cache-Control: no-cache",
-                "Connection: keep-alive",
-            ]
-            for key, val in self._base_headers.items():
-                req_lines.append(f"{key}: {val}")
-
-            req_data = "\r\n".join(req_lines) + "\r\n\r\n"
-            writer.write(req_data.encode("utf-8"))
-            await writer.drain()
-
-            first_line = await asyncio.wait_for(reader.readline(), timeout=timeout)
-            if not first_line:
-                raise ConnectionError(
-                    "SSE server closed connection before HTTP response"
+            try:
+                self._logger.info(f"Subscribing: {path}")
+                reader, writer = await self._open_stream(
+                    path, "GET", extra_headers=headers
                 )
+                while True:
+                    line = await asyncio.wait_for(reader.readline(), timeout)
+                    if not line:
+                        break
+                    decoded = line.decode("utf-8").strip()
+                    if decoded.startswith("data:"):
+                        payload = decoded[5:].strip()
+                        await on_data(payload)
 
-            if b"200" not in first_line:
-                status = first_line.decode("utf-8", "replace").strip()
-                raise ConnectionError(f"SSE HTTP error: {status}")
-
-            while True:
-                h_line = await reader.readline()
-                if h_line in (b"\r\n", b"\n", b""):
-                    break
-
-            if on_connect is not None:
-                result = on_connect()
-                if hasattr(result, "send"):
-                    await result
-
-            while True:
-                try:
-                    line_bytes = await asyncio.wait_for(
-                        reader.readline(), timeout=timeout
-                    )
-
-                except Exception as error:
-                    print(t("stream.idle_timeout"))
-                    raise ConnectionError(f"SSE idle timeout ({timeout}s)") from error
-
-                if not line_bytes:
-                    raise ConnectionError("SSE connection closed by server")
-
-                line = line_bytes.decode("utf-8").strip()
-                if line:
-                    res_cb = callback(line)
-                    if hasattr(res_cb, "send"):
-                        await res_cb
-
-                await asyncio.sleep(0)
-
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            print(t("stream.request_error", url=url, error=e))
-            raise
-
-        finally:
-            if writer:
-                try:
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self._logger.error(f"SSE disconnected: {e}. Retrying in 3s...")
+                await asyncio.sleep(3)
+            finally:
+                if writer:
                     writer.close()
                     await writer.wait_closed()
-                except Exception:
-                    pass
 
-            _ = gc.collect()
+    def _parse_url(self, path: str) -> tuple[str, int, str, bool]:
+        url = f"{self._base_url}/{path.lstrip('/')}"
+        proto, _, rest = url.partition("://")
+        is_ssl = proto.lower() == "https"
 
-    def _parse_url(self, url: str) -> tuple[str, str, int, str]:
-        """
-        Parse a URL into its components: protocol, host, port, and path.
+        host_port, _, req_path = rest.partition("/")
+        req_path = "/" + req_path
 
-        Args:
-            url: The URL to parse.
-
-        Returns:
-            A tuple containing the protocol (str), host (str), port (int), and path (str).
-        """
-        proto, _, host_path = url.partition("://")
-        if not host_path:
-            host_path = proto
-            proto = "http"
-
-        host, _, path = host_path.partition("/")
-        path = "/" + path
-
-        if ":" in host:
-            host, port_str = host.split(":")
+        if ":" in host_port:
+            host, port_str = host_port.split(":", 1)
             port = int(port_str)
         else:
-            port = 443 if proto == "https" else 80
+            host = host_port
+            port = 443 if is_ssl else 80
 
-        return proto, host, port, path
+        return host, port, req_path, is_ssl
 
-    @classmethod
-    def create(cls) -> Api:
-        if cls.__instance is None:
-            cls.__instance = Api()
-        return cls.__instance
+    async def _open_stream(
+        self,
+        path: str,
+        method: str,
+        body: str | None = None,
+        extra_headers: dict | None = None,
+    ):
+        host, port, req_path, is_ssl = self._parse_url(path)
+        reader, writer = await asyncio.open_connection(
+            host, port, ssl=is_ssl if is_ssl else None
+        )
+
+        headers = {
+            "Host": host,
+            "x-api-key": self._api_key,
+            "Authorization": f"Bearer {self._api_key}",
+            "Connection": "close",
+        }
+        if extra_headers:
+            headers.update(extra_headers)
+
+        if body is not None:
+            body_bytes = body.encode("utf-8")
+            headers["Content-Type"] = "application/json"
+            headers["Content-Length"] = str(len(body_bytes))
+        else:
+            body_bytes = b""
+
+        req_lines = [f"{method} {req_path} HTTP/1.0"]
+        for k, v in headers.items():
+            req_lines.append(f"{k}: {v}")
+        req_header = "\r\n".join(req_lines) + "\r\n\r\n"
+
+        writer.write(req_header.encode("utf-8"))
+        if body_bytes:
+            writer.write(body_bytes)
+        await writer.drain()
+
+        status_line = await reader.readline()
+        if not status_line:
+            writer.close()
+            await writer.wait_closed()
+            raise OSError("Empty HTTP response")
+
+        parts = status_line.decode("utf-8").split(" ", 2)
+        status_code = int(parts[1]) if len(parts) > 1 else 0
+
+        while True:
+            line = await reader.readline()
+            if not line or line == b"\r\n":
+                break
+
+        if status_code >= 400:
+            writer.close()
+            await writer.wait_closed()
+            raise OSError(f"HTTP Error {status_code}")
+
+        return reader, writer

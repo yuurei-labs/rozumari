@@ -1,263 +1,209 @@
 import asyncio
 import json
 
-import bluetooth
+import aioble
+from bluetooth import UUID
 
 from lib.config import Config
-from lib.i18n import t
-from services.ble_handler import BLEHandler
+from lib.logger import Logger
+from lib.singleton import Singleton
+from services.ble_service import BleService
 
-_CONFIG_SERVICE_UUID = bluetooth.UUID("ffaa5bd2-45cd-4512-bf35-c5d4276a0c7a")
-_CHAR_RX_UUID = bluetooth.UUID("3d8cffcb-69d3-41d3-8f9e-fafed0bcce6b")
-_CHAR_TX_UUID = bluetooth.UUID("09cbb497-1c8a-4ad6-b196-3459c1820a1a")
-
-
-_IRQ_CENTRAL_CONNECT = 1
-_IRQ_CENTRAL_DISCONNECT = 2
-_IRQ_GATTS_WRITE = 3
+# Service and Characteristics UUIDs (Sử dụng đối tượng UUID của bluetooth)
+_SERVICE_UUID = UUID("20D2C743-9DFC-4FC8-B58F-14686A0A66A5")
+_RX_CHAR_UUID = UUID("28363331-A0EA-4954-9E39-3CA259D85EFF")
+_TX_CHAR_UUID = UUID("21F3B000-609B-498B-9079-86AE7AE31A28")
 
 
-class BLE:
-    __instance: BLE | None = None
+class BLE(Singleton):
+    """Manages Bluetooth Low Energy (BLE) connections for the IoT system using aioble.
 
-    _handle_rx: memoryview[int] | None = None
-    _handle_tx: memoryview[int] | None = None
-    _conn_handle: memoryview[int] | None = None
-    _config: dict | None = None
+    Implements the Singleton pattern to guarantee that only a single BLE
+    driver instance is initialized and controlled throughout the application lifecycle.
+    """
 
     def __init__(self) -> None:
-        config = Config.create()
-        self._config = config.get("device", {})
+        """Initializes the GATTS service configuration and background task structures.
 
-        self._rx_buffer = bytearray()
-        self._send_lock = asyncio.Lock()
-        self._handler = BLEHandler(self)
+        Args:
+            name (str): The local name of the device displayed during advertising.
 
-        self._ble = bluetooth.BLE()
-        self._ble.active(True)
-        _ = self._ble.irq(self._irq)
+        Returns:
+            None
+        """
+        super().__init__()
+        self._name = Config().device.get("name")
+        self._logger = Logger("BLE")
+        self._service = BleService(self._send)
+        self._ble_service = aioble.Service(_SERVICE_UUID)
 
-        service = (
-            _CONFIG_SERVICE_UUID,
-            (
-                (_CHAR_RX_UUID, 0x0008),  # WRITE
-                (_CHAR_TX_UUID, 0x0002 | 0x0010),  # READ | NOTIFY
-            ),
+        # RX (Write) Characteristic
+        self._rx_char = aioble.Characteristic(
+            self._ble_service, _RX_CHAR_UUID, write=True, capture=True
         )
-        handles = self._ble.gatts_register_services((service,))
-        self._handle_rx, self._handle_tx = handles[0]
-        self._ble.gatts_set_buffer(self._handle_rx, 512, True)
 
-    def is_ready(self) -> bool:
-        """
-        Check if the BLE module is active and ready for use.
+        # TX (Read & Notify) Characteristic
+        self._tx_char = aioble.Characteristic(
+            self._ble_service, _TX_CHAR_UUID, read=True, notify=True
+        )
 
-        Returns:
-            True if the BLE module is active, False otherwise.
-        """
-        return self._ble.active()
-
-    def is_connected(self) -> bool:
-        """
-        Check if there is an active BLE connection.
-
-        Returns:
-            True if there is an active BLE connection, False otherwise.
-        """
-        return self._conn_handle is not None
-
-    def activate(self) -> None:
-        """
-        Activate the BLE module if it is not already active.
-
-        Returns:
-            None
-        """
-        if not self._ble.active():
-            self._ble.active(True)
-
-    def start_advertising(self) -> None:
-        """
-        Start BLE advertising with the device name and service UUID.
-
-        Returns:
-            None
-        """
-        if not self._ble or self._config is None:
-            return
-
-        name = self._config.get("name", "Rozumari") or "Rozumari"
-        name = name.strip()[:8]
-
-        payload = bytearray([0x02, 0x01, 0x06])
-        name_bytes = name.encode("utf-8")
-        payload.extend(bytearray([len(name_bytes) + 1, 0x09]) + name_bytes)
-        uuid_bytes = bytes(_CONFIG_SERVICE_UUID)  # pyright: ignore[reportArgumentType]
-        payload.extend(bytearray([len(uuid_bytes) + 1, 0x07]) + uuid_bytes)
-
-        self._ble.gap_advertise(625000, adv_data=payload)  # pyright: ignore[reportCallIssue]
-        _, _mac = self._ble.config("mac")
-        mac = ":".join(f"{byte:02X}" for byte in _mac)
-
-        print(t("ble.advertising", name=name, mac=mac))
-
-    def _irq(self, event: int, data: tuple) -> None:
-        """
-        Handle BLE events triggered by the BLE stack.
-
-        Args:
-            event: The BLE event type.
-            data: The event data associated with the BLE event.
-
-        Returns:
-            None
-        """
-        if event == _IRQ_CENTRAL_CONNECT:
-            print(t("ble.connected"))
-            self._conn_handle = data[0]
-            self._rx_buffer = bytearray()
-            _ = asyncio.create_task(self._handler.on_connect())
-
-        elif event == _IRQ_CENTRAL_DISCONNECT:
-            print(t("ble.disconnected"))
-            self._conn_handle = None
-            self._rx_buffer = bytearray()
-            _ = asyncio.create_task(self._async_start_advertising())
-
-        elif event == _IRQ_GATTS_WRITE:
-            if self._handle_rx is None:
-                return
-
-            _, val_handle = data
-            if val_handle == self._handle_rx:
-                chunk = self._ble.gatts_read(self._handle_rx)
-                if chunk:
-                    self._rx_buffer.extend(chunk)
-                    if b"\n" in chunk:
-                        _ = asyncio.create_task(self._process_buffer())
-
-    async def send_code(self, action: int, status: int = 0) -> None:
-        """
-        Send a code to the connected BLE device.
-
-        Args:
-            action: The action code to send.
-            status: The status code to send (default is 0).
-
-        Returns:
-            None
-        """
-        if not self._ble or self._conn_handle is None or self._handle_tx is None:
-            print(t("ble.not_connected"))
-            return
-
-        # ACTION_SEND_DEVICE_INFO = 9 (hoặc khi payload truyền vào vượt mức 4-bit status)
-        if action == 9 or status > 0x0F:
-            action_byte = (action & 0x0F) << 4
-            b0 = status & 0xFF
-            b1 = (status >> 8) & 0xFF
-            b2 = (status >> 16) & 0xFF
-            b3 = (status >> 24) & 0xFF
-            b4 = (status >> 32) & 0xFF
-            packet_bytes = bytes([action_byte, b0, b1, b2, b3, b4])
-            packet_type = "6 Bytes"
-        else:
-            packet_bytes = bytes([((action & 0x0F) << 4) | (status & 0x0F)])
-            packet_type = "1 Byte"
-
-        async with self._send_lock:
-            self._ble.gatts_write(self._handle_tx, packet_bytes)
-            await asyncio.sleep(0.01)
-
-            try:
-                self._ble.gatts_notify(self._conn_handle, self._handle_tx, packet_bytes)  # pyright: ignore[reportCallIssue]
-            except TypeError:
-                self._ble.gatts_notify(self._conn_handle, self._handle_tx)  # pyright: ignore[reportArgumentType]
-
-            await asyncio.sleep(0.03)
-            print(
-                t(
-                    "ble.sent",
-                    packet_type=packet_type,
-                    packet_hex=packet_bytes.hex().upper(),
-                    action=action,
-                    status=status,
-                )
-            )
-
-    def disconnect(self) -> None:
-        """
-        Disconnect the current BLE connection if it exists.
-
-        Returns:
-            None
-        """
-        if not self._ble or self._conn_handle is None:
-            return
+        aioble.register_services(self._ble_service)
 
         try:
-            _ = self._ble.gap_disconnect(self._conn_handle)
-        except Exception:
-            pass
+            self._rx_char.write(b"\x00" * 512)
+            self._tx_char.write(b"\x00" * 512)
+        except Exception as e:
+            self._logger.error(f"Failed to pre-allocate buffer size: {e}")
 
-        self._conn_handle = None
-        self._rx_buffer = bytearray()
+        self._connections: set[aioble.Device] = set()
+        self._is_advertising = False
+
+    def get_mac(self):
+        try:
+            from bluetooth import BLE as _BLE
+
+            _, mac_bytes = _BLE().config("mac")
+            return ":".join(f"{byte:02X}" for byte in mac_bytes)
+        except Exception:
+            return "Unknown"
+
+    def start(self) -> None:
+        """Activates BLE and launches the background async tasks.
+
+        Returns:
+            None
+        """
+        if self._is_advertising:
+            return
+
+        self._is_advertising = True
+        self._logger.info(f"Advertised as {self._name} ({self.get_mac()})")
+
+        loop = asyncio.get_event_loop()
+        self._advertising_task = loop.create_task(self._advertising_loop())
+        self._rx_task = loop.create_task(self._rx_loop())
 
     def stop(self) -> None:
-        """
-        Stop the BLE module, disconnect any active connections, and deactivate the BLE stack.
+        """Stops advertising, cancels tasks, and disconnects all clients.
 
         Returns:
             None
         """
-        if not self._ble:
-            return
-        self._ble.gap_advertise(0)
-        if self._conn_handle is not None:
+        self._is_advertising = False
+
+        if hasattr(self, "_advertising_task") and self._advertising_task:
+            self._advertising_task.cancel()
+            self._advertising_task = None
+
+        if hasattr(self, "_rx_task") and self._rx_task:
+            self._rx_task.cancel()
+            self._rx_task = None
+
+        for conn in list(self._connections):
             try:
-                _ = self._ble.gap_disconnect(self._conn_handle)
+                conn.disconnect()  # pyright: ignore[reportAttributeAccessIssue]
             except Exception:
                 pass
-            self._conn_handle = None
-        self._ble.active(False)
+        self._connections.clear()
+        self._logger.info("Deactivated")
 
-    async def _async_start_advertising(self) -> None:
+    @property
+    def status(self) -> bool:
+        """Checks if the BLE module is currently active and running.
+
+        Returns:
+            bool: True if advertising is active, False otherwise.
         """
-        Asynchronously start BLE advertising after a short delay.
+        return self._is_advertising
+
+    async def _advertising_loop(self) -> None:
+        """Background task running the advertising loop cleanly.
 
         Returns:
             None
         """
-        await asyncio.sleep(0.1)
-        self.start_advertising()
+        config = Config()
+        self._name = config.device.get("name", "")
 
-    async def _process_buffer(self) -> None:
-        """
-        Process the received data in the RX buffer, parse it as JSON, and handle the command.
+        while self._is_advertising:
+            try:
+                adv = await aioble.advertise(
+                    250_000, name=self._name, services=[_SERVICE_UUID]
+                )
+                if adv is None or not self._is_advertising:
+                    break
+
+                async with adv as connection:
+                    self._connections.add(connection)
+                    self._logger.info(f"Connected to: {connection.device}")
+
+                    try:
+                        await connection.exchange_mtu(256)
+                    except Exception:
+                        pass
+
+                    await asyncio.sleep(1)
+
+                    if connection.is_connected():
+                        payload = json.dumps(
+                            {"general": config.general, "timeout": config.timeout},
+                        )
+                        self._send(payload)
+
+                    await connection.disconnected()
+                    self._connections.discard(connection)
+                    self._logger.info("Disconnected")
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                if self._is_advertising:
+                    self._logger.error(f"Error in advertising loop: {e}")
+                    await asyncio.sleep_ms(500)
+                else:
+                    break
+
+    async def _rx_loop(self) -> None:
+        """Background task that waits and reads incoming BLE writes sequentially.
 
         Returns:
             None
         """
-        if not self._rx_buffer:
+        while self._is_advertising:
+            try:
+                _ = await self._rx_char.written()
+                data = self._rx_char.read()
+                if not data:
+                    continue
+
+                try:
+                    msg = data.decode("utf-8").strip()
+                    self._logger.info(f"Received: {msg}")
+
+                    self._service.execute(msg)
+                except UnicodeError:
+                    self._logger.info(f"Received non-UTF8 chunk of size: {len(data)}")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._logger.error(f"Error in RX loop: {e}")
+                await asyncio.sleep_ms(100)
+
+    def _send(self, msg: str) -> None:
+        """Sends a notification payload back to all active connections.
+
+        Args:
+            msg (str): The text message to send.
+        """
+        if not self._is_advertising or not self._connections:
             return
 
-        raw_str = self._rx_buffer.decode("utf-8", "ignore").strip()
+        msg_bytes = msg.encode("utf-8")
+        self._tx_char.write(msg_bytes)
+        self._logger.info(f"Sent: {msg}")
 
-        try:
-            data = json.loads(raw_str)
-            self._rx_buffer = bytearray()
-
-            action = data.get("action")
-            payload = data.get("payload", {})
-
-            if action:
-                await self._handler.handle_command(action, payload)
-
-        except Exception:
-            pass
-
-    @classmethod
-    def create(cls) -> BLE:
-        if cls.__instance is None:
-            cls.__instance = BLE()
-        return cls.__instance
+        for conn in self._connections:
+            try:
+                self._tx_char.notify(conn)
+            except Exception as e:
+                self._logger.error(f"Failed to notify client: {e}")

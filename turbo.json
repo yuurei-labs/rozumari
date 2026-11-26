@@ -1,9 +1,6 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
   "ui": "tui",
-  "futureFlags": {
-    "experimentalPythonWorkspaces": true
-  },
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

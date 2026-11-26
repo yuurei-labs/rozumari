@@ -1,298 +1,147 @@
 import asyncio
+import gc
+import time
 
-import ntptime
-from machine import Pin
+from machine import Pin, reset
 
 from lib.config import Config
-from lib.i18n import t
-from lib.pins import Pins
+from lib.constants import MODE_SWITCH
+from lib.logger import Logger
+from lib.singleton import Singleton
+from lib.utils import Utils
 from modules.ble import BLE
+from modules.st7735 import ST7735
 from modules.wifi import WiFi
-from services.display import Display
 from services.sync_info import SyncInfo
-from tasks.link import Link
-from tasks.schedules import Schedules
-from tasks.streaming import Streaming
-from tasks.sync_schedule import SyncSchedule
-
-CONFIG_MODE_VALUE = 0
-NORMAL_MODE_VALUE = 1
-SWITCH_DEBOUNCE_MS = 50
+from tasks.schedule_task import ScheduleTask
+from tasks.subcribe_task import SubcribeTask
+from tasks.sync_task import SyncTask
 
 
-class Bootstrap:
-    _ble: BLE | None = None
-    _wifi: WiFi
-
-    _streaming: Streaming
-    _schedules: Schedules
-    _sync_schedule: SyncSchedule
-    _sync_info: SyncInfo
-    _display: Display
-    _link: Link
-
-    _switch: Pin
-    _switch_flag: asyncio.ThreadSafeFlag
-
+class Main(Singleton):
     def __init__(self) -> None:
-        pins = Pins.create()
-        self._switch = pins.switch
-        self._switch_flag = asyncio.ThreadSafeFlag()
-        self._switch.irq(
-            trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
-            handler=self._switch_irq_handler,
+        super().__init__()
+        self._config = Config()
+        self._config.load()
+
+        self._logger = Logger("Prog")
+        self._wifi = WiFi()
+        self._ble = BLE()
+        self._utils = Utils()
+        self._sync_info = SyncInfo()
+        self._lcd = ST7735()
+
+        self._is_config_mode: bool | None = None
+        self._mode_changed = True
+        self._last_trigger = 0
+        self._task: asyncio.Task | None = None
+
+        self._sw = Pin(MODE_SWITCH, Pin.IN, Pin.PULL_UP)
+        self._sw.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self._sw_irq)
+
+        self._schedule_task = ScheduleTask()
+        self._subcribe_task = SubcribeTask()
+        self._sync_task = SyncTask()
+
+    async def _normal_flow(self) -> None:
+        self._draw_header()
+
+        steps = (
+            (
+                f"Connecting to {self._config.wifi.get('ssid')}...",
+                self._wifi.connect(),
+                "WiFi connect failed",
+            ),
+            ("Syncing time...", self._utils.sync_time(), "Time sync failed"),
+            ("Syncing info...", self._sync_info.execute(), "Info sync failed"),
         )
-
-        self._wifi = WiFi.create()
-        self._streaming = Streaming.create()
-        self._schedules = Schedules.create()
-        self._sync_schedule = SyncSchedule.create()
-        self._sync_info = SyncInfo.create()
-        self._display = Display.create()
-        self._link = Link.create()
-
-    def _switch_irq_handler(self, pin: Pin) -> None:
-        """
-        Interrupt handler for the mode switch pin. This method is called when the switch state changes (pressed or released).
-        It sets the switch_flag to notify the main loop that a mode change has occurred.
-
-        Args:
-            pin (Pin): The Pin object representing the mode switch.
-
-        Returns:
-            None
-        """
-        self._switch_flag.set()
-
-    async def _wait_for_switch_change(
-        self, current_mode: int, mode_task: asyncio.Task
-    ) -> None:
-        """
-        Wait for the mode switch to change state. This method continuously checks the state of the mode switch pin.
-        If the switch state changes from the current mode, it cancels the provided mode_task to
-        initiate a mode transition.
-
-        Args:
-            current_mode (int): The current mode value (CONFIG_MODE_VALUE or NORMAL_MODE_VALUE).
-            mode_task (asyncio.Task): The asyncio task representing the current mode operation.
-
-        Returns:
-            None
-        """
-        while not mode_task.done():
-            await self._switch_flag.wait()
-            await asyncio.sleep(SWITCH_DEBOUNCE_MS / 1000)
-
-            if self._switch.value() == current_mode:
-                continue
-
-            mode_task.cancel()
-            return
-
-    async def _config_mode(self) -> None:
-        """
-        Run Config Mode (BLE) and terminate cleanly when stop_event is set.
-        This method initializes the BLE module, activates it if necessary, and starts advertising for BLE connections
-        while displaying the configuration mode on the display. It runs indefinitely until interrupted or an error occurs.
-
-        Returns:
-            None
-        """
-        try:
-            self._ble = BLE.create()
-            self._display.show_config_mode()
-
-            if not self._ble.is_ready():
-                self._ble.activate()
-
-            if self._ble.is_connected():
-                self._ble.disconnect()
-
-            self._ble.start_advertising()
-            print(t("config.started"))
-
-            while True:
-                await asyncio.sleep(3600)
-        except asyncio.CancelledError:
-            raise
-
-        except Exception as e:
-            print(t("config.error", error=e))
-
-        finally:
-            if self._ble and self._ble.is_connected():
-                self._ble.stop()
-            print(t("config.stopped"))
-
-    async def _normal_mode(self) -> None:
-        """
-        Run Normal Mode (WiFi) and terminate cleanly when stop_event is set.
-        This method initializes the WiFi module, attempts to connect to the configured WiFi network,
-        synchronizes the device time, and starts various tasks such as display, link, schedule synchronization
-        and streaming. It runs indefinitely until interrupted or an error occurs.
-
-        Returns:
-            None
-        """
-        _ = Config.create(force=True)
-        self._display.show_boot_logo()
-
-        retry_count, max_retries, is_connected = 0, 3, False
-        while retry_count < max_retries:
-            is_connected = await self._wifi.connect()
-            if is_connected:
-                break
-            retry_count += 1
-            print(
-                t(
-                    "setup.wifi_failed_attempt",
-                    attempt=retry_count,
-                    max_retries=max_retries,
-                )
-            )
-            self._wifi.reset()
-            await asyncio.sleep(2)
-
-        if not is_connected:
-            print(t("setup.wifi_failed_max"))
-            return
-
-        print(t("setup.syncing_time"))
-        retry_count, max_retries = 0, 3
-        while is_connected and retry_count < max_retries:
-            try:
-                ntptime.settime()
-                print(t("setup.time_synced"))
-                break
-            except Exception as e:
-                retry_count += 1
-                print(
-                    t(
-                        "setup.time_sync_failed",
-                        attempt=retry_count,
-                        max_retries=max_retries,
-                        error=e,
-                    )
-                )
-                await asyncio.sleep(2)
-
-        print(t("setup.syncing_device"))
-        _ = await self._sync_info.execute()
-
-        print(t("setup.syncing_schedules"))
-        _ = await self._sync_schedule.execute()
-
-        print(t("normal.setup_complete"))
-
-        tasks = [
-            asyncio.create_task(self._display.start()),
-            asyncio.create_task(self._link.start()),
-            asyncio.create_task(self._sync_schedule.start()),
-            asyncio.create_task(self._streaming.start()),
-            asyncio.create_task(self._schedules.start()),
-        ]
-
-        try:
-            while True:
-                await asyncio.sleep(3600)
-        finally:
-            print(t("normal.cleaning"))
-            for task in tasks:
-                task.cancel()
-
-            await asyncio.gather(*tasks, return_exceptions=True)
-            print(t("normal.stopped"))
-
-    async def _run_mode(self, mode: int) -> None:
-        """
-        Run the specified mode (Config Mode or Normal Mode) and handle mode transitions.
-        This method determines the mode to run based on the provided mode value, starts the corresponding mode
-        coroutine, and waits for the mode to complete or be interrupted by a mode switch. It also handles exceptions
-        and ensures proper cleanup of tasks.
-
-        Args:
-            mode (int): The mode value to run (CONFIG_MODE_VALUE or NORMAL_MODE_VALUE).
-
-        Returns:
-            None
-        """
-        mode_name = "Unknown Mode"
-
-        if mode == CONFIG_MODE_VALUE:
-            mode_name = "Config Mode"
-            mode_coro = self._config_mode()
-        elif mode == NORMAL_MODE_VALUE:
-            mode_name = "Normal Mode"
-            mode_coro = self._normal_mode()
-        else:
-            raise ValueError("Invalid mode value")
-
-        mode_task = asyncio.create_task(mode_coro)
-        switch_task = asyncio.create_task(self._wait_for_switch_change(mode, mode_task))
-
-        try:
-            await mode_task
-
-        except asyncio.CancelledError:
-            print(f"{mode_name} MODE interrupted")
-
-        except Exception as error:
-            print(t("error.unexpected", error=error))
-
-        finally:
-            switch_task.cancel()
-            await asyncio.gather(
-                switch_task,
-                return_exceptions=True,
-            )
-
-    async def start(self) -> None:
-        """
-        Start the main loop of the application, continuously checking the mode switch and running the appropriate mode.
-        This method runs indefinitely, checking the state of the mode switch pin and executing the corresponding mode
-        (Config Mode or Normal Mode) based on the switch value. It handles mode transitions and
-        ensures proper cleanup of tasks when switching modes.
-
-        Returns:
-            None
-        """
-        while True:
-            current_mode = self._switch.value()
-            await self._run_mode(current_mode)
-            await self.stop()
+        for msg, coro, err in steps:
+            self._lcd.fill_rect((0, 72), (160, 24), ST7735.BLACK)
+            self._lcd.text((0, 72), msg, ST7735.WHITE, wrap=True, center=True)
+            if not await coro:
+                raise OSError(err)
             await asyncio.sleep(1)
 
-    async def stop(self) -> None:
-        """
-        Stop all running tasks and clean up resources.
-        This method stops the BLE and WiFi connections, as well as all running tasks such as
-        display, link, schedule synchronization, streaming, and schedules. It ensures that all resources are properly released
-        and cleaned up before exiting.
+        self._lcd.fill(ST7735.BLACK)
 
-        Returns:
-            None
-        """
-        if self._ble and self._ble.is_connected():
-            self._ble.stop()
-        if self._wifi:
+        bg_tasks = (
+            asyncio.create_task(self._schedule_task.execute()),
+            asyncio.create_task(self._subcribe_task.execute()),
+            asyncio.create_task(self._sync_task.execute()),
+        )
+        try:
+            await asyncio.gather(*bg_tasks)
+        finally:
+            for t in bg_tasks:
+                t.cancel()
+            gc.collect()
+
+    async def _config_flow(self) -> None:
+        self._draw_header()
+        self._lcd.text((0, 80), "Advertise at", ST7735.WHITE, center=True)
+        self._lcd.text((0, 96), self._ble.get_mac(), ST7735.WHITE, center=True)
+
+    async def execute(self) -> None:
+        self._lcd.init()
+        self._lcd.rotation(1)
+        while True:
+            if self._mode_changed:
+                self._mode_changed = False
+                await self._sync_mode()
+            if self._task and self._task.done():
+                await self._task
+            await asyncio.sleep_ms(50)
+
+    def cleanup(self) -> None:
+        if self._task:
+            self._task.cancel()
+        self._wifi.disconnect()
+        self._ble.stop()
+        self._lcd.deinit()
+        self._logger.info("Cleanup completed.")
+
+    async def _sync_mode(self) -> None:
+        is_cfg = self._sw.value() == 0
+        if is_cfg == self._is_config_mode:
+            return
+
+        self._is_config_mode = is_cfg
+        if self._task:
+            self._task.cancel()
+
+        if is_cfg:
+            self._logger.info("Switched to CONFIG MODE")
             self._wifi.disconnect()
+            self._ble.start()
+            self._task = asyncio.create_task(self._config_flow())
+        else:
+            self._logger.info("Switched to NORMAL MODE")
+            self._config.load()
+            self._ble.stop()
+            self._task = asyncio.create_task(self._normal_flow())
 
-        await self._display.stop()
-        await self._link.stop()
-        await self._sync_schedule.stop()
-        await self._streaming.stop()
-        await self._schedules.stop()
+    def _draw_header(self) -> None:
+        self._lcd.fill(ST7735.BLACK)
+        self._lcd.text((0, 44), "Rozumari", ST7735.WHITE, 2, center=True)
+        self._lcd.hline((16, 64), 128, ST7735.BLUE)
+
+    def _sw_irq(self, _: Pin) -> None:
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_trigger) > 150:
+            self._last_trigger = now
+            self._mode_changed = True
 
 
 if __name__ == "__main__":
-    bootstrap = Bootstrap()
-
+    main = Main()
     try:
-        asyncio.run(bootstrap.start())
+        asyncio.run(main.execute())
+    except OSError as e:
+        main._logger.error(f"Critical failure: {e}. Rebooting in 3s...")
+        main.cleanup()
+        time.sleep(3)
+        reset()
     except KeyboardInterrupt:
-        print(t("cleanup.interrupted"))
-    except Exception as error:
-        print(t("error.unexpected", error=error))
+        main._logger.info("KeyboardInterrupt detected")
     finally:
-        asyncio.run(bootstrap.stop())
-        print(t("cleanup.stopped"))
+        main.cleanup()

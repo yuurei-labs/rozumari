@@ -1,64 +1,103 @@
 import json
+import os
+
+from lib.singleton import Singleton
 
 
-class Config:
-    __instance: Config | None = None
+class Config(Singleton):
+    def __init__(self, path: str = "/data/config.json") -> None:
+        super().__init__()
+        if hasattr(self, "_data"):
+            return
 
-    def __init__(self, file_path: str) -> None:
-        self._file_path = file_path
-        self._config = self._load()
+        self._path = path
+        self._data: dict = {}
+        self._ensure_dir()
 
-    def get(self, key: str, default: str | int | dict | None = None):
-        """
-        Get the value associated with the specified key from the configuration.
-
-        Args:
-            key: The configuration key to retrieve.
-            default: The default value to return if the key is not found.
-
-
-        Returns:
-            The value associated with the key, or the default value if the key is not found.
-        """
-        return self._config.get(key, default)
-
-    def set(self, key: str, value: str | int | dict) -> bool:
-        """
-        Set the value for the specified key in the configuration and save it to the file.
-
-        Args:
-            key: The configuration key to set.
-            value: The value to associate with the key.
-
-        Returns:
-            True if the configuration was saved successfully, False otherwise.
-        """
-        self._config[key] = value
+    def load(self) -> None:
         try:
-            with open(self._file_path, "w") as f:
-                json.dump(self._config, f)
-            return True
-        except Exception as e:
-            from lib.i18n import t
+            with open(self._path, "r") as f:
+                loaded = json.load(f)
 
-            print(t("config.save_error", path=self._file_path, error=e))
+            self._data = {}
+            for section, defaults in self._DEFAULT.items():
+                self._data[section] = defaults.copy()
+                if isinstance(loaded.get(section), dict):
+                    self._data[section].update(loaded[section])
+
+        except OSError:
+            self._data = {k: v.copy() for k, v in self._DEFAULT.items()}
+            self.save()
+        except Exception:
+            self._data = {k: v.copy() for k, v in self._DEFAULT.items()}
+
+    def save(self) -> bool:
+        try:
+            with open(self._path, "w") as f:
+                json.dump(self._data, f)
+            return True
+        except Exception:
             return False
 
-    def _load(self) -> dict:
-        """
-        Load the configuration from the JSON file.
+    def update(self, section: str, values: dict) -> None:
+        if section in self._data:
+            self._data[section].update(values)
 
-        Returns:
-            A dictionary containing the configuration data.
-        """
-        with open(self._file_path, "r") as f:
-            self._config = json.load(f)
-        return self._config
+        self.save()
 
-    @classmethod
-    def create(
-        cls, file_path: str = "/data/config.json", force: bool = False
-    ) -> Config:
-        if cls.__instance is None or force:
-            cls.__instance = cls(file_path)
-        return cls.__instance
+    @property
+    def general(self) -> dict:
+        return self._data["general"]
+
+    @property
+    def wifi(self) -> dict:
+        return self._data["wifi"]
+
+    @property
+    def api(self) -> dict:
+        return self._data["api"]
+
+    @property
+    def device(self) -> dict:
+        return self._data["device"]
+
+    @property
+    def timeout(self) -> dict:
+        return self._data["timeout"]
+
+    def _ensure_dir(self) -> None:
+        folder = self._path.rpartition("/")[0]
+        if not folder:
+            return
+
+        try:
+            os.mkdir(folder)
+        except OSError:
+            pass
+
+    _DEFAULT: dict[str, dict] = {  # noqa: RUF012
+        "general": {
+            "timezone": 7,
+            "syncTime": "04:00:00",
+            "language": "vi",
+        },
+        "wifi": {
+            "ssid": "",
+            "password": "",
+        },
+        "api": {
+            "url": "",
+            "token": "",
+        },
+        "device": {
+            "id": "",
+            "name": "Rozumari",
+            "model": "",
+            "position": "",
+        },
+        "timeout": {
+            "drop": 5,
+            "open": 10,
+            "close": 10,
+        },
+    }

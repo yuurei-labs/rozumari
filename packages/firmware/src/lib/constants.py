@@ -1,11 +1,19 @@
-# Font used for ST7735 display.
+from micropython import const
 
-# Each character uses 5 bytes.
-# index using ASCII value * 5.
-# Each byte contains a column of pixels.
-# The character may be 8 pixels high and 5 wide.
+# Button / Switch
+MODE_SWITCH = const(21)
 
-sysfont = {
+
+# LCD
+LCD_SCK = const(10)
+LCD_SDA = const(11)
+LCD_DC = const(12)
+LCD_RS = const(13)
+LCD_CS = const(14)
+
+
+# Font
+FONT = {
     "width": 5,
     "height": 8,
     "start": 0,

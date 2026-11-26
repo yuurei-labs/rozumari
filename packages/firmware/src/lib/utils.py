@@ -1,109 +1,52 @@
+import asyncio
 import time
 
-from lib.config import Config
-from lib.i18n import t
+import ntptime
+
+from lib.logger import Logger
+from lib.singleton import Singleton
 
 
-def get_current_time() -> time.struct_time:
-    """
-    Get the current time adjusted for UTC offset.
+class Utils(Singleton):
+    def __init__(self) -> None:
+        super().__init__()
 
-    Returns:
-        time.struct_time: The current local time adjusted for UTC offset.
-    """
-    config = Config.create()
-    utc_offset = config.get("utc", 0)
+    def get_current_time(self) -> tuple[int, ...]:
+        return time.localtime(ntptime.time())
 
-    current_time = time.time() + (utc_offset * 3600)
-    return time.localtime(current_time)
+    def clamp(self, value: int, _min: int, _max: int) -> int:
+        return max(_min, min(_max, value))
 
+    def rgb(self, r: int, g: int, b: int, invert: bool = False) -> int:
+        if invert:
+            val = ((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)
+        else:
+            val = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
-def rgb(r: int, g: int, b: int, invert: bool = False) -> int:
-    """
-    Convert RGB values to a packed 16-bit color value (RGB565 format).
+        return val
 
-    Args:
-        r (int): Red component (0-255).
-        g (int): Green component (0-255).
-        b (int): Blue component (0-255).
-        invert (bool): If True, invert the color order (BGR instead of RGB).
+    async def sync_time(self, retries: int = 5) -> bool:
+        logger = Logger("NTP")
+        logger.info("Syncing time...")
 
-    Returns:
-        int: Packed 16-bit color value in RGB565 format.
-    """
-    if invert:
-        val = ((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)
-    else:
-        val = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+        ntp_hosts = [
+            "time.google.com",
+            "time.cloudflare.com",
+            "time.windows.com",
+            "pool.ntp.org",
+        ]
+        ntptime.timeout = 5
 
-    return val
+        for attempt in range(1, retries + 1):
+            host = ntp_hosts[(attempt - 1) % len(ntp_hosts)]
+            ntptime.host = host
+            try:
+                logger.info(f"Connecting to NTP server: {host}")
+                ntptime.settime()
+                logger.info("Time synced!")
+                return True
+            except Exception as e:
+                logger.error(f"Sync failed ({retries - attempt} time(s) left): {e}")
+                await asyncio.sleep(2)
 
-
-def swap_color(color: int) -> int:
-    """
-    Swap the two bytes of a 16-bit color value.
-
-    Args:
-        color (int): 16-bit color value in RGB565 format.
-
-    Returns:
-        int: 16-bit color value with bytes swapped.
-    """
-    # Swap the two bytes so framebuf receives RGB565 in the expected order.
-    return ((color & 0xFF) << 8) | ((color >> 8) & 0xFF)
-
-
-def clamp(value: int, _min: int, _max: int) -> int:
-    """
-    Clamp a value between a minimum and maximum range.
-
-    Args:
-        value (int): The value to be clamped.
-        _min (int): The minimum allowed value.
-        _max (int): The maximum allowed value.
-
-    Returns:
-        int: The clamped value, ensuring it falls within the specified range.
-    """
-    return max(_min, min(_max, value))
-
-
-def print_table(data: list[dict], keys: list[str] | None = None) -> None:
-    """
-    Print a formatted table from a list of dictionaries.
-
-    Args:
-        data (list[dict]): A list of dictionaries representing the table rows.
-        keys (list[str] | None): Optional list of keys to display as columns. If
-            None, all keys from the first dictionary will be used.
-    """
-    if not data:
-        print(t("utils.empty_table"))
-        return
-
-    if keys is None:
-        keys = list(data[0].keys())
-
-    col_widths = {}
-    for k in keys:
-        max_w = len(str(k))
-        for row in data:
-            val_str = str(row.get(k, ""))
-            max_w = max(max_w, len(val_str))
-        col_widths[k] = max_w
-
-    sep = "+" + "+".join("-" * (col_widths[k] + 2) for k in keys) + "+"
-
-    header_cols = [f" {k!s:<{col_widths[k]}} " for k in keys]
-    header = "|" + "|".join(header_cols) + "|"
-
-    print(sep)
-    print(header)
-    print(sep)
-
-    for row in data:
-        row_cols = [f" {row.get(k, '')!s:<{col_widths[k]}} " for k in keys]
-        line = "|" + "|".join(row_cols) + "|"
-        print(line)
-
-    print(sep)
+        return False

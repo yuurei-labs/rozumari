@@ -3,43 +3,32 @@ from math import sqrt
 
 from machine import SPI, Pin
 
-from lib.font import sysfont
-from lib.pins import Pins
-from lib.utils import clamp, rgb
+from lib.constants import FONT, LCD_CS, LCD_DC, LCD_RS, LCD_SCK, LCD_SDA
+from lib.singleton import Singleton
+from lib.utils import Utils
 
 Rotations = [0x00, 0x60, 0xC0, 0xA0]  # 0, 90, 180, 270 degrees
 
 BGR = 0x08
 RGB = 0x00
 
+utils = Utils()
 
-class ST7735:
-    __instance: ST7735 | None = None
 
-    spi: SPI
-    dc: Pin
-    rs: Pin
-    cs: Pin
-
-    _size: tuple[int, int]
-    _offset: bytearray
-    _rotate: int
-    _rgb: bool
-    _tfa: int
-    _bfa: int
-
-    _color_data: bytearray
-    _window_loc_data: bytearray
-
-    _buf: bytes
-
+class ST7735(Singleton):
     def __init__(self, size: tuple[int, int] = (128, 160)):
-        pins = Pins.create()
-
-        self.spi = pins.tft_spi
-        self.dc = pins.tft_dc
-        self.rs = pins.tft_rs
-        self.cs = pins.tft_cs
+        self.spi = SPI(
+            1,
+            baudrate=20_000_000,
+            polarity=0,
+            phase=0,
+            sck=Pin(LCD_SCK),
+            mosi=Pin(LCD_SDA),
+            miso=None,
+        )
+        self.dc = Pin(LCD_DC, Pin.OUT)
+        self.rs = Pin(LCD_RS, Pin.OUT)
+        self.cs = Pin(LCD_CS, Pin.OUT)
         self.cs.value(1)
 
         self._size = size
@@ -63,7 +52,7 @@ class ST7735:
         """
         return self._size
 
-    def on(self, on: bool = True) -> None:
+    def active(self, on: bool = True) -> None:
         """
         Turn display screen output ON or OFF.
 
@@ -138,12 +127,11 @@ class ST7735:
         pos: tuple[int, int],
         text: str,
         color: int,
-        font: dict = sysfont,
         size: tuple[int, int] | int = 1,
         wrap: bool = False,
+        center: bool = False,
     ) -> None:
-        """
-        Render string text onto display with custom fonts, scaling, and line wrapping options.
+        """Render string text onto display with custom fonts, scaling, and line wrapping options.
 
         Args:
             pos: Top-left start coordinate tuple (x, y).
@@ -152,6 +140,7 @@ class ST7735:
             font: Font dictionary mapping character glyph data.
             size: Uniform scale factor integer or scale tuple (x_scale, y_scale).
             wrap: Set `True` to wrap text to next line on reaching display border.
+            center: Set `True` to automatically center-align the text horizontally.
 
         Returns:
             None
@@ -162,16 +151,28 @@ class ST7735:
         else:
             wh = size
 
-        x, y = pos
-        width = wh[0] * font.get("width", 0) + 1
+        orig_x, y = pos
+        font_width = FONT["width"]
+        width = wh[0] * font_width + 1
+
+        if center:
+            total_text_width = (len(text) - 1) * width + (wh[0] * font_width)
+            x = (self._size[0] - total_text_width) // 2
+            x = max(0, x)
+
+            start_x = x
+        else:
+            x = orig_x
+            start_x = orig_x
+
         for char in text:
-            self.char((x, y), char, color, font, wh)
+            self.char((x, y), char, color, wh)
             x += width
 
             if x + width > self._size[0]:
                 if wrap:
-                    y += font["height"] * wh[1] + 1
-                    x = pos[0]
+                    y += FONT["height"] * wh[1] + 1
+                    x = start_x
                 else:
                     break
 
@@ -180,7 +181,6 @@ class ST7735:
         pos: tuple[int, int],
         char: str,
         color: int,
-        font: dict = sysfont,
         sizes: tuple[int, int] = (1, 1),
     ) -> None:
         """
@@ -196,15 +196,15 @@ class ST7735:
         Returns:
             None
         """
-        start_char = font.get("start", 0)
-        end_char = font.get("end", 0)
+        start_char = FONT["start"]
+        end_char = FONT["end"]
         ci = ord(char)
 
         if start_char <= ci <= end_char:
-            font_width = font.get("width", 0)
-            font_height = font.get("height", 0)
+            font_width = FONT["width"]
+            font_height = FONT["height"]
             ci = (ci - start_char) * font_width
-            char_data = font.get("data", bytearray)[ci : ci + font_width]
+            char_data = FONT["data"][ci : ci + font_width]
 
             w = font_width * sizes[0]
             h = font_height * sizes[1]
@@ -318,8 +318,11 @@ class ST7735:
         """
         x, y = pos
 
-        start = clamp(x, 0, self._size[0]), clamp(y, 0, self._size[1])
-        stop = start[0], clamp(start[1] + length, 0, self._size[1])
+        start = (
+            utils.clamp(x, 0, self._size[0]),
+            utils.clamp(y, 0, self._size[1]),
+        )
+        stop = start[0], utils.clamp(start[1] + length, 0, self._size[1])
 
         if stop[1] < start[1]:
             start, stop = stop, start
@@ -342,8 +345,8 @@ class ST7735:
         """
         x, y = pos
 
-        start = clamp(x, 0, self._size[0]), clamp(y, 0, self._size[1])
-        stop = clamp(start[0] + length, 0, self._size[0]), start[1]
+        start = utils.clamp(x, 0, self._size[0]), utils.clamp(y, 0, self._size[1])
+        stop = utils.clamp(start[0] + length, 0, self._size[0]), start[1]
 
         if stop[0] < start[0]:
             start, stop = stop, start
@@ -385,10 +388,13 @@ class ST7735:
         Returns:
             None
         """
-        start = clamp(pos[0], 0, self._size[0]), clamp(pos[1], 0, self._size[1])
+        start = (
+            utils.clamp(pos[0], 0, self._size[0]),
+            utils.clamp(pos[1], 0, self._size[1]),
+        )
         end = (
-            clamp(start[0] + size[0] - 1, 0, self._size[0]),
-            clamp(start[1] + size[1] - 1, 0, self._size[1]),
+            utils.clamp(start[0] + size[0] - 1, 0, self._size[0]),
+            utils.clamp(start[1] + size[1] - 1, 0, self._size[1]),
         )
 
         if end[0] < start[0]:
@@ -472,7 +478,7 @@ class ST7735:
             y = int(sqrt(rsq - x * x))
             y0 = pos[1] - y
             ey = y0 + y * 2
-            y0 = clamp(y0, 0, self._size[1])
+            y0 = utils.clamp(y0, 0, self._size[1])
             ln = abs(ey - y0) + 1
 
             self.vline((pos[0] + x, y0), ln, color)
@@ -550,8 +556,7 @@ class ST7735:
         self._vscrolladdr(a)
 
     def _vscrolladdr(self, addr: int) -> None:
-        """
-        Send vertical scroll start address register command.
+        """Send vertical scroll start address register command.
 
         Args:
             addr: Memory line start address.
@@ -801,12 +806,6 @@ class ST7735:
         time.sleep(0.1)
         self.cs.value(1)
 
-    @classmethod
-    def create(cls) -> ST7735:
-        if cls.__instance is None:
-            cls.__instance = ST7735()
-        return cls.__instance
-
     NOP = 0x0
 
     SWRESET = 0x01
@@ -856,15 +855,15 @@ class ST7735:
     GMCTRP1 = 0xE0
     GMCTRN1 = 0xE1
 
-    BLACK = 0
-    RED = rgb(0xFF, 0x00, 0x00)
-    MAROON = rgb(0x80, 0x00, 0x00)
-    GREEN = rgb(0x00, 0xFF, 0x00)
-    FOREST = rgb(0x00, 0x80, 0x80)
-    BLUE = rgb(0x00, 0x00, 0xFF)
-    NAVY = rgb(0x00, 0x00, 0x80)
-    CYAN = rgb(0x00, 0xFF, 0xFF)
-    YELLOW = rgb(0xFF, 0xFF, 0x00)
-    PURPLE = rgb(0xFF, 0x00, 0xFF)
-    WHITE = rgb(0xFF, 0xFF, 0xFF)
-    GRAY = rgb(0x80, 0x80, 0x80)
+    BLACK = utils.rgb(0x00, 0x00, 0x00)
+    RED = utils.rgb(0xFF, 0x00, 0x00)
+    MAROON = utils.rgb(0x80, 0x00, 0x00)
+    GREEN = utils.rgb(0x00, 0xFF, 0x00)
+    FOREST = utils.rgb(0x00, 0x80, 0x80)
+    BLUE = utils.rgb(0x00, 0x00, 0xFF)
+    NAVY = utils.rgb(0x00, 0x00, 0x80)
+    CYAN = utils.rgb(0x00, 0xFF, 0xFF)
+    YELLOW = utils.rgb(0xFF, 0xFF, 0x00)
+    PURPLE = utils.rgb(0xFF, 0x00, 0xFF)
+    WHITE = utils.rgb(0xFF, 0xFF, 0xFF)
+    GRAY = utils.rgb(0x80, 0x80, 0x80)
