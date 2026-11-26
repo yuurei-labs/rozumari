@@ -21,8 +21,8 @@
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "@rozumari/contract": "workspace:*",
     "@rozumari/lib": "workspace:*",
-    "@vercel/functions": "^3.11.3",
-    "ai": "^7.0.181",
+    "@vercel/functions": "^3.11.4",
+    "ai": "^7.0.183",
     "chat": "^4.45.0",
     "drizzle-orm": "^1.0.0-rc.5",
     "effect": "catalog:effect"

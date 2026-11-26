@@ -43,22 +43,22 @@
     },
     "prod": {
       "@tanstack/react-query": "^5.108.4",
-      "@tiesen/effect-tanstack-query": "^0.0.27",
+      "@tiesen/effect-tanstack-query": "^0.0.28",
       "react-native-safe-area-context": "~5.11.1",
       "react-native-svg": "~15.16.0"
     },
     "i18n": {
-      "i18next": "^27.2.7",
+      "i18next": "^27.2.9",
       "react-i18next": "^18.0.3"
     },
     "effect": {
-      "@effect/platform-bun": "^4.1.5",
-      "@effect/sql-pg": "^4.1.5",
-      "@effect/atom-react": "^4.1.5",
-      "effect": "^4.1.5"
+      "@effect/platform-bun": "^4.1.6",
+      "@effect/sql-pg": "^4.1.6",
+      "@effect/atom-react": "^4.1.6",
+      "effect": "^4.1.6"
     },
     "react": {
-      "@types/react": "^19.3.1",
+      "@types/react": "^19.3.3",
       "@types/react-dom": "^19.3.0",
       "react": "19.3.0",
       "react-dom": "19.3.0",
