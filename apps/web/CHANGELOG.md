@@ -1,3 +1,10 @@
+## @rozumari/web@0.2.10
+
+### Patch Changes
+
+- Fix default value of update form
+- Added i18n
+
 ## @rozumari/web@0.2.8
 
 ### Patch Changes

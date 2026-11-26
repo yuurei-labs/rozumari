@@ -1,3 +1,10 @@
+## @rozumari/oxlint@0.2.1
+
+### Patch Changes
+
+- Refractor firmware
+- Added new bluetooth communicate
+
 ## @rozumari/oxlint@0.2.0
 
 ### Minor Changes

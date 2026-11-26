@@ -1,3 +1,19 @@
+## @rozumari/firmware@0.2.7
+
+### Patch Changes
+
+- Trigger build
+
+### Patch Changes
+
+- Refractor firmware
+- Added new bluetooth communicate
+
+### Patch Changes
+
+- Fix default value of update form
+- Added i18n
+
 ## @rozumari/firmware@0.2.6
 
 ### Patch Changes

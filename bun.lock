@@ -41,7 +41,7 @@
     },
     "apps/mobile": {
       "name": "@rozumari/mobile",
-      "version": "0.2.12",
+      "version": "0.2.13",
       "dependencies": {
         "@effect/atom-react": "catalog:effect",
         "@expo-google-fonts/geist": "~0.4.2",
@@ -85,7 +85,7 @@
     },
     "apps/web": {
       "name": "@rozumari/web",
-      "version": "0.2.9",
+      "version": "0.2.10",
       "dependencies": {
         "@effect/atom-react": "catalog:effect",
         "@react-router/dev": "^8.5.3",
@@ -134,7 +134,7 @@
     },
     "packages/firmware": {
       "name": "@rozumari/firmware",
-      "version": "0.2.6",
+      "version": "0.2.7",
     },
     "packages/lib": {
       "name": "@rozumari/lib",
@@ -189,7 +189,7 @@
     },
     "tools/oxlint": {
       "name": "@rozumari/oxlint",
-      "version": "0.2.0",
+      "version": "0.2.1",
     },
     "tools/typescript": {
       "name": "@rozumari/tsconfig",
