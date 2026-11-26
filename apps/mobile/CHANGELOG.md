@@ -1,3 +1,9 @@
+## @rozumari/mobile@0.2.14
+
+### Bug Fixes
+
+- build error
+
 ## @rozumari/mobile@0.2.13
 
 ### Patch Changes

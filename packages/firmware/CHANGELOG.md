@@ -1,3 +1,9 @@
+## @rozumari/firmware@0.2.9
+
+### Bug Fixes
+
+- build error
+
 ## @rozumari/firmware@0.2.8
 
 ### Bug Fixes
