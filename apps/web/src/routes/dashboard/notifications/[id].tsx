@@ -39,7 +39,7 @@ export default function NotificationDetailsPage({
   if (!data?.data) return null
 
   const notification = data.data
-  const levelMeta = LEVEL_METAS[notification.level as keyof typeof LEVEL_METAS]
+  const levelMeta = LEVEL_METAS[notification.level]
 
   return (
     <>

@@ -21,8 +21,8 @@ import { Icon } from '@rozumari/ui/components/icons'
 import { Input } from '@rozumari/ui/components/input'
 import { toast } from '@rozumari/ui/components/toast'
 import { FormBuilder } from '@rozumari/ui/lib/form-builder'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { useLocalSearchParams } from 'expo-router'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -70,33 +70,13 @@ function SaveDeviceFormSubmit({
 
 export function UpdateDeviceButton({
   device,
+  timestamp,
 }: Readonly<{
   device: { id: DeviceId; name: string | null; position: string | null }
+  timestamp: Date
 }>) {
   const { t } = useTranslation('pill-box')
   const [isOpen, setIsOpen] = React.useState(false)
-
-  const queryClient = useQueryClient()
-  const { api } = useRuntime()
-  const router = useRouter()
-
-  const unlinkMutation = useMutation({
-    ...api.device.unlink.mutationOptions(),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: api.device.list.getQueryKey(),
-      })
-
-      toast.success(t('details.device.unlink.messages.success'))
-      router.push('/(tabs)/pill-boxes')
-      setIsOpen(false)
-    },
-    onError: (error) =>
-      toast.error(
-        t('details.device.unlink.messages.error'),
-        error.message ?? undefined
-      ),
-  })
 
   return (
     <BottomSheet snapPoints={[0.67, 1]} open={isOpen} onOpenChange={setIsOpen}>
@@ -104,7 +84,10 @@ export function UpdateDeviceButton({
         <Icon name='Pencil' className='text-muted-foreground' />
       </BottomSheetTrigger>
 
-      <updateDeviceForm.Provider defaultValues={device}>
+      <updateDeviceForm.Provider
+        key={timestamp.toString()}
+        defaultValues={device}
+      >
         <BottomSheetContent>
           <BottomSheetHeader>
             <BottomSheetTitle>
@@ -152,16 +135,6 @@ export function UpdateDeviceButton({
 
           <BottomSheetFooter>
             <SaveDeviceFormSubmit setIsOpen={setIsOpen} />
-
-            <Button
-              variant='destructive'
-              onPress={() => unlinkMutation.mutate({ id: device.id })}
-              disabled={unlinkMutation.isPending}
-            >
-              {unlinkMutation.isPending
-                ? t('details.device.unlink.actions.submitting')
-                : t('details.device.unlink.actions.submit')}
-            </Button>
           </BottomSheetFooter>
         </BottomSheetContent>
       </updateDeviceForm.Provider>

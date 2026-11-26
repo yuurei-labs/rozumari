@@ -39,8 +39,7 @@ export default function TabsNotificationsDetailScreen() {
 
   useEffect(() => {
     if (notification?.readAt !== null) return
-
-    void (() => {
+    ;(() => {
       queryClient.setQueriesData(
         { queryKey: api.notification.unread.getQueryKey() },
         (oldData: CountUnreadNotificationsDto) =>
@@ -110,8 +109,7 @@ export default function TabsNotificationsDetailScreen() {
       </View>
     )
 
-  const levelConfig =
-    LEVEL_CONFIG[notification.level as keyof typeof LEVEL_CONFIG]
+  const levelConfig = LEVEL_CONFIG[notification.level]
 
   return (
     <ScrollView className='flex-1 p-4' contentContainerClassName='gap-4'>

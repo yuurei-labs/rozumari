@@ -29,8 +29,7 @@ export const ScheduleCard: React.FC<{
   as: 'li' | 'div'
   schedule: ListSchedulesDto.Output[number]
 }> = ({ as: Comp, schedule }) => {
-  const statusConfig =
-    STATUS_CONFIG[schedule.status as keyof typeof STATUS_CONFIG]
+  const statusConfig = STATUS_CONFIG[schedule.status]
 
   return (
     <Comp

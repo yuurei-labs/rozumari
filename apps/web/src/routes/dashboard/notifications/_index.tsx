@@ -23,13 +23,13 @@ export default function NotificationsPage() {
     useInfiniteQuery({
       queryKey: api.notification.list.getQueryKey({ query: {} }),
       initialPageParam: 1,
-      queryFn: ({ pageParam = 1 }) =>
+      queryFn: ({ pageParam }) =>
         api.notification.list.query({ query: { page: pageParam } }),
       getNextPageParam: (lastPage) => {
         const { page, totalPages } = lastPage.data.meta
         return page < totalPages ? page + 1 : undefined
       },
-      refetchInterval: 1000 * 30, // 30 seconds
+      refetchInterval: 10 * 60 * 1000, // 10 minutes
     })
 
   return (

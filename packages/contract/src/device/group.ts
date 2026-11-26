@@ -56,7 +56,7 @@ export class DeviceGroup extends HttpApiGroup.make('device')
       payload: UnlinkDeviceDto.Input,
       success: UnlinkDeviceDto,
       error: [DeviceNotFound, Forbidden],
-    })
+    }).middleware(AdminMiddleware)
   )
 
   .add(

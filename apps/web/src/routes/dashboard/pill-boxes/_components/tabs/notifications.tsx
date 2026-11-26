@@ -15,7 +15,7 @@ export const NotificationsTab: React.FC = () => {
         query: { deviceId: device?.id },
       }),
       initialPageParam: 1,
-      queryFn: ({ pageParam = 1 }) =>
+      queryFn: ({ pageParam }) =>
         api.notification.list.query({
           query: { deviceId: device?.id, page: pageParam },
         }),
@@ -23,7 +23,7 @@ export const NotificationsTab: React.FC = () => {
         const { page, totalPages } = lastPage.data.meta
         return page < totalPages ? page + 1 : undefined
       },
-      refetchInterval: 1000 * 30, // 30 seconds
+      refetchInterval: 10 * 60 * 1000, // 10 minutes
       enabled: !!device?.id,
     })
 

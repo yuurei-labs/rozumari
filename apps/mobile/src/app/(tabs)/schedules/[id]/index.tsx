@@ -43,7 +43,7 @@ export default function TabsSchedulesDetailsScreen() {
     )
 
   const { date, time, device, items, status: _status } = data.data
-  const status = STATUS_MAPPERS[_status as keyof typeof STATUS_MAPPERS]
+  const status = STATUS_MAPPERS[_status]
 
   return (
     <View className='gap-4 p-4'>

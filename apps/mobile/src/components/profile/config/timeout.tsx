@@ -8,6 +8,7 @@ import {
 } from '@rozumari/ui/components/select'
 import { Typography } from '@rozumari/ui/components/typography'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 
 import { useBLE } from '@/components/profile/config/_context'
@@ -31,6 +32,7 @@ const SECOND_OPTIONS = Array.from({ length: 12 }, (_, i) => {
 })
 
 export const BLETimeoutConfig: React.FC = () => {
+  const { t } = useTranslation(['common', 'profile'])
   const { config, send } = useBLE()
 
   const [drop, setDrop] = React.useState<number>(config?.timeout.drop ?? 5)
@@ -117,12 +119,16 @@ export const BLETimeoutConfig: React.FC = () => {
   if (!config) return null
   return (
     <View className='gap-4'>
-      {renderTimeoutField('Drop Timeout', 'drop', drop)}
-      {renderTimeoutField('Open Timeout', 'open', open)}
-      {renderTimeoutField('Close Timeout', 'close', close)}
+      {renderTimeoutField(t('profile:config.timeout.drop.title'), 'drop', drop)}
+      {renderTimeoutField(t('profile:config.timeout.open.title'), 'open', open)}
+      {renderTimeoutField(
+        t('profile:config.timeout.close.title'),
+        'close',
+        close
+      )}
 
       <Button onPress={() => send(`timeout.${drop}.${open}.${close}`)}>
-        Save Changes
+        {t('common:save_changes')}
       </Button>
     </View>
   )

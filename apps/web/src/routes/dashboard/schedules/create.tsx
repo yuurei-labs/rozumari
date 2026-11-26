@@ -57,7 +57,7 @@ function CreateScheduleFormSubmit({
           queryKey: api.schedule.list.getQueryKey(),
         })
         toast.success('Schedule created')
-        navigate('/dashboard/schedules')
+        await navigate('/dashboard/schedules')
       },
       onError: (error) => toast.error(error.message),
     }

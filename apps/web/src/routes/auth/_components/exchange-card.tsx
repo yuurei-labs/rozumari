@@ -19,8 +19,7 @@ export const ExchangeCard: React.FC<{ token: string }> = ({ token }) => {
     ...api.oauth.exchange.mutationOptions(),
     onSuccess: async () => {
       await refetch()
-
-      navigate('/dashboard', { replace: true })
+      await navigate('/dashboard', { replace: true })
     },
     onError: ({ message }) =>
       toast.add({ type: 'error', title: 'OAuth failed', description: message }),

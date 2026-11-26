@@ -36,7 +36,7 @@ export const ScheduleList = React.forwardRef<
     const grouped: Record<string, typeof schedules> = {}
 
     for (const schedule of schedules) {
-      if (!grouped[schedule.date]) grouped[schedule.date] = []
+      grouped[schedule.date] ??= []
       grouped[schedule.date] = [...(grouped[schedule.date] ?? []), schedule]
     }
 

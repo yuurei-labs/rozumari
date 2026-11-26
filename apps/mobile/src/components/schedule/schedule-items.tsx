@@ -190,10 +190,7 @@ export function ScheduleItems({
                   className='w-1/3'
                   checked={item.isRequired}
                   onCheckedChange={(checked) =>
-                    helpers.update(index, {
-                      ...item,
-                      isRequired: !!checked,
-                    })
+                    helpers.update(index, { ...item, isRequired: checked })
                   }
                 >
                   <Typography>{t('schedule:items.required')}</Typography>

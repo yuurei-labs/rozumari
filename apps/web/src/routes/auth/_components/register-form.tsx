@@ -50,8 +50,8 @@ function RegisterFormSubmit({
   const handleSubmit = registerForm.useSubmit(
     (payload) => api.auth.register.mutate({ payload }),
     {
-      onSuccess: () => {
-        navigate('/login', { replace: true })
+      onSuccess: async () => {
+        await navigate('/login', { replace: true })
         toast.success('Registration successful.', {
           description: 'Please check your email to verify your account.',
         })

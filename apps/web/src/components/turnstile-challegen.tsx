@@ -10,6 +10,7 @@ export function TurnstileChallenge({
 
   useEffect(() => {
     const scriptId = 'cf-turnstile-script'
+    // oxlint-disable-next-line typescript/non-nullable-type-assertion-style
     let script = document.querySelector(`#${scriptId}`) as HTMLScriptElement
 
     const renderWidget = () => {

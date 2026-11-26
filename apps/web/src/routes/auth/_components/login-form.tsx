@@ -51,7 +51,7 @@ function LoginFormSubmit({
       onSuccess: async () => {
         await refetch()
         toast.success('You have successfully logged in.')
-        navigate('/dashboard', { replace: true })
+        await navigate('/dashboard', { replace: true })
       },
       onError: (error) => toast.error(error.message),
     }

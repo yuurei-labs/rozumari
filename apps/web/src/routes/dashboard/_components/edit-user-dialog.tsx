@@ -1,5 +1,4 @@
 import type {
-  UserId,
   UserRole,
   UserSchema,
 } from '@rozumari/contract/user/schemas/user.schema'
@@ -65,7 +64,7 @@ export const EditUserDialog: React.FC<EditUserDialogProps> = ({ user }) => {
     try {
       await runtime.runPromise(
         api.user.update.mutateEffect({
-          params: { id: user.id as UserId },
+          params: { id: user.id },
           payload: { role },
         })
       )
@@ -99,7 +98,7 @@ export const EditUserDialog: React.FC<EditUserDialogProps> = ({ user }) => {
         </DialogHeader>
 
         <RadioGroup
-          value={role as string}
+          value={role}
           onValueChange={(v) => setRole(v)}
           disabled={isPending}
         >

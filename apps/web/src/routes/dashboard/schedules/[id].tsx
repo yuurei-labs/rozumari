@@ -70,9 +70,7 @@ export default function ScheduleDetailsPage({ params }: Route.ComponentProps) {
       <div className='flex items-center justify-between gap-4'>
         <Typography variant='h2'>Schedule Details</Typography>
 
-        <Badge
-          variant={statusVariantMap[status as keyof typeof statusVariantMap]}
-        >
+        <Badge variant={statusVariantMap[status]}>
           {status === 'completed' && (
             <>
               <CheckCircle2Icon className='mr-1' /> Completed

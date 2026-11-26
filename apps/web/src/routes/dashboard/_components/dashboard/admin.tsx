@@ -205,6 +205,7 @@ export const AdminDashboard: React.FC = () => {
                   strokeWidth={2}
                 >
                   {deviceChartData.map((entry, index) => (
+                    // oxlint-disable-next-line typescript/no-deprecated
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>

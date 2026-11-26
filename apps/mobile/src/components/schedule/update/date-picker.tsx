@@ -22,7 +22,7 @@ export const UpdateScheduleDatePicker = () => {
           <FieldLabel>{t('date')}</FieldLabel>
 
           <Button variant='outline' onPress={() => setIsOpen(true)}>
-            {field.value || t('select_date')}
+            {field.value ?? t('select_date')}
           </Button>
 
           <Activity mode={isOpen ? 'visible' : 'hidden'}>

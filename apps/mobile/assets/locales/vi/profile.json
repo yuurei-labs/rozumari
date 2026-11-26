@@ -112,8 +112,7 @@
           "success": "Cập nhật thời gian xả thuốc thành công.",
           "failed": "Cập nhật thời gian xả thuốc thất bại. Vui lòng thử lại."
         }
-      },
-      "save": "Lưu"
+      }
     },
     "actions": {
       "scan": "Quét",

@@ -2,6 +2,7 @@ import asyncio
 import time
 
 from lib.config import Config
+from lib.i18n import translate as _t
 from lib.schedule import Schedule
 from lib.singleton import Singleton
 from lib.utils import Utils
@@ -36,7 +37,7 @@ class DisplayTask(Singleton):
         self._render_time(force=True)
         self._lcd.hline((4, 28), 152, ST7735.BLUE)
 
-        self._lcd.text((4, 34), "Time  | Items | Status", ST7735.WHITE)
+        self._lcd.text((4, 34), _t("lcd_time_items_status"), ST7735.WHITE)
         self._lcd.hline((4, 44), 152, ST7735.WHITE)
 
         self._last_date_hm = ""
@@ -57,12 +58,12 @@ class DisplayTask(Singleton):
 
     async def _on_long_press_5s(self) -> None:
         self._lcd.fill(ST7735.BLACK)
-        self._lcd.text((0, 60), "Generating QR...", ST7735.CYAN, center=True)
+        self._lcd.text((0, 60), _t("lcd_generating_qr"), ST7735.CYAN, center=True)
 
         matrix = await self._gen_link_qr.execute()
         if not matrix:
             self._lcd.fill(ST7735.BLACK)
-            self._lcd.text((0, 60), "Failed to load QR!", ST7735.RED, center=True)
+            self._lcd.text((0, 60), _t("lcd_qr_failed"), ST7735.RED, center=True)
             await asyncio.sleep(2)
             self.layout()
             return
@@ -111,7 +112,7 @@ class DisplayTask(Singleton):
         self._last_schedule_snapshot = current_snapshot
         self._lcd.fill_rect((0, 48), (160, 80), ST7735.BLACK)
         if not schedules:
-            self._lcd.text((0, 76), "No schedules", ST7735.WHITE, center=True)
+            self._lcd.text((0, 76), _t("lcd_no_schedules"), ST7735.WHITE, center=True)
             return
 
         y = 48
@@ -138,7 +139,7 @@ class DisplayTask(Singleton):
 
             info_str = f"{hh_mm:<5} | {items_str:<5} | "
             self._lcd.text((4, y), info_str, ST7735.WHITE)
-            self._lcd.text((100, y), status, color)
+            self._lcd.text((100, y), _t(f"status_{status}"), color)
             y += 12
 
     def _draw_qr_matrix(self, matrix: list[list[bool]]) -> None:

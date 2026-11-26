@@ -37,7 +37,7 @@ export default function TabsPillBoxesDetailsScreen() {
 
             if (p.type === 'success') toast.success(p.content)
             else if (p.type === 'error') toast.error(p.content)
-            else toast.show(p.content)
+            else toast.info(p.content)
           }
         },
         onError: (err) => toast.error(err.message),
@@ -45,8 +45,7 @@ export default function TabsPillBoxesDetailsScreen() {
     )
   )
 
-  const device = data?.data
-  if (isLoading || !device)
+  if (isLoading || !data?.data)
     return (
       <View className='flex-1 items-center justify-center p-4'>
         <Typography className='text-muted-foreground'>
@@ -60,25 +59,25 @@ export default function TabsPillBoxesDetailsScreen() {
       contentContainerClassName='p-4 gap-3'
       columnWrapperClassName='flex-1 gap-3'
 
-      data={device.compartments}
+      data={data.data.compartments}
       keyExtractor={(comp) => comp.position}
       renderItem={({ item }) => <CompartmentCard compartment={item} />}
       numColumns={2}
 
       ListHeaderComponent={
         <>
-          <PillBoxDetailsHeader device={device} />
+          <PillBoxDetailsHeader device={data.data} timestamp={data.timestamp} />
 
           <View className='flex-row items-center gap-2 pt-4'>
             <Typography className='flex-1 font-semibold'>
               {t('details.compartment_list', {
-                count: device.compartments.length,
+                count: data.data.compartments.length,
               })}
             </Typography>
 
             <SyncButton id={id} />
 
-            <DropButton id={id} compartments={device.compartments ?? []} />
+            <DropButton id={id} compartments={data.data.compartments} />
           </View>
         </>
       }

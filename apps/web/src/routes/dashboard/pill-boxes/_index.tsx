@@ -64,7 +64,9 @@ export default function PillBoxesIndexPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              setQuery({ query: e.currentTarget.query.value, page: 1 })
+              const formData = new FormData(e.currentTarget)
+              const q = formData.get('query') as string
+              void setQuery({ query: q, page: 1 })
             }}
           />
         }
@@ -92,9 +94,7 @@ export default function PillBoxesIndexPage() {
             action: (item) => (
               <Badge
                 className='capitalize'
-                variant={
-                  STATUS_VARIANTS[item.status as keyof typeof STATUS_VARIANTS]
-                }
+                variant={STATUS_VARIANTS[item.status]}
               >
                 {item.status}
               </Badge>
@@ -111,7 +111,7 @@ export default function PillBoxesIndexPage() {
                   View
                 </Link>
 
-                {status === 'linked' && (
+                {user?.role === 'admin' && status === 'linked' && (
                   <UnlinkButton
                     id={id}
                     name={name}

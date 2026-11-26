@@ -43,7 +43,7 @@ export default function TabsNotificationsIndexScreen() {
     useInfiniteQuery({
       queryKey: api.notification.list.getQueryKey({ query: {} }),
       initialPageParam: 1,
-      queryFn: ({ pageParam = 1 }) =>
+      queryFn: ({ pageParam }) =>
         api.notification.list.query({ query: { page: pageParam } }),
       getNextPageParam: (lastPage) => {
         const { page, totalPages } = lastPage.data.meta
@@ -67,7 +67,7 @@ export default function TabsNotificationsIndexScreen() {
         locale: i18n.language,
       })
 
-      if (!groups[groupTitle]) groups[groupTitle] = []
+      groups[groupTitle] ??= []
       groups[groupTitle].push(notification)
     }
 
@@ -77,7 +77,7 @@ export default function TabsNotificationsIndexScreen() {
   const handleRefresh = useCallback(async () => {
     queryClient.setQueryData(
       api.notification.list.getQueryKey({ query: {} }),
-      (oldData: InfiniteData<unknown, unknown>) => {
+      (oldData: InfiniteData<unknown>) => {
         if (!oldData) return oldData
         return {
           pages: oldData.pages.slice(0, 1),
@@ -113,8 +113,7 @@ export default function TabsNotificationsIndexScreen() {
       )}
       renderItem={({ item }) => {
         const isUnread = !item.readAt
-        const levelConfig =
-          LEVEL_CONFIG[item.level as keyof typeof LEVEL_CONFIG]
+        const levelConfig = LEVEL_CONFIG[item.level]
 
         return (
           <TouchableOpacity
@@ -153,7 +152,7 @@ export default function TabsNotificationsIndexScreen() {
         <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />
       }
       onEndReached={() => {
-        if (hasNextPage && !isFetchingNextPage) fetchNextPage()
+        if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
       }}
       onEndReachedThreshold={0.05}
       ListFooterComponent={

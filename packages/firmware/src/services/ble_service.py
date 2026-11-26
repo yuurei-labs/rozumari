@@ -9,6 +9,7 @@ import time
 import network
 
 from lib.config import Config
+from lib.i18n import translate as _t
 from lib.singleton import Singleton
 
 
@@ -28,9 +29,9 @@ class BleService(Singleton):
                 _, ssid, password = msg.split(".")
                 if self._test_wifi(ssid, password):
                     self._config.update("wifi", {"ssid": ssid, "password": password})
-                    self._send_notify("success", "WiFi connected and saved!")
+                    self._send_notify("success", _t("ble_wifi_success"))
                 else:
-                    self._send_notify("error", f"Could not connect to WiFi '{ssid}'!")
+                    self._send_notify("error", _t("ble_wifi_failed", ssid=ssid))
 
             elif msg.startswith("general"):
                 _, timezone, sync_time, language = msg.split(".")
@@ -43,7 +44,7 @@ class BleService(Singleton):
                         "language": language,
                     },
                 )
-                self._send_notify("success", "General config saved!")
+                self._send_notify("success", _t("ble_general_saved"))
 
             elif msg.startswith("timeout"):
                 _, drop, open, close = msg.split(".")
@@ -51,10 +52,10 @@ class BleService(Singleton):
                     "timeout",
                     {"drop": int(drop), "open": int(open), "close": int(close)},
                 )
-                self._send_notify("success", "Timeout config saved!")
+                self._send_notify("success", _t("ble_timeout_saved"))
 
         except Exception as e:
-            self._handle_send(f"Config error: {e}")
+            self._handle_send(_t("ble_config_error", error=str(e)))
 
     def _send_notify(self, msg_type: str, content: str) -> None:
         payload = json.dumps({"type": msg_type, "content": content})

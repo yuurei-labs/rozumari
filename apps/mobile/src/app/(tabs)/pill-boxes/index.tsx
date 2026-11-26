@@ -97,8 +97,7 @@ export default function TabsPillBoxesIndexScreen() {
           )
         }
         renderItem={({ item }) => {
-          const status =
-            STATUS_MAPPERS[item.status as keyof typeof STATUS_MAPPERS]
+          const status = STATUS_MAPPERS[item.status]
 
           return (
             <Pressable

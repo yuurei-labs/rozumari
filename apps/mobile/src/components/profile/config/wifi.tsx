@@ -2,11 +2,13 @@ import { Button } from '@rozumari/ui/components/button'
 import { Input } from '@rozumari/ui/components/input'
 import { Typography } from '@rozumari/ui/components/typography'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 
 import { useBLE } from '@/components/profile/config/_context'
 
 export const BLEWifiConfig: React.FC = () => {
+  const { t } = useTranslation(['common', 'profile'])
   const { config, send } = useBLE()
 
   const [ssid, setSsid] = React.useState('')
@@ -22,7 +24,9 @@ export const BLEWifiConfig: React.FC = () => {
   return (
     <View className='gap-4'>
       <View className='gap-1.5'>
-        <Typography className='font-medium'>Wi-Fi Name (SSID)</Typography>
+        <Typography className='font-medium'>
+          {t('profile:config.wifi.ssid')}
+        </Typography>
         <Input
           placeholder='Enter Wi-Fi SSID'
           value={ssid}
@@ -33,7 +37,9 @@ export const BLEWifiConfig: React.FC = () => {
       </View>
 
       <View className='gap-1.5'>
-        <Typography className='font-medium'>Password</Typography>
+        <Typography className='font-medium'>
+          {t('profile:config.wifi.password')}
+        </Typography>
         <Input
           placeholder='Enter Wi-Fi password'
           value={password}
@@ -45,7 +51,7 @@ export const BLEWifiConfig: React.FC = () => {
       </View>
 
       <Button disabled={!ssid.trim()} onPress={handleSave}>
-        Save Changes
+        {t('common:save_changes')}
       </Button>
     </View>
   )

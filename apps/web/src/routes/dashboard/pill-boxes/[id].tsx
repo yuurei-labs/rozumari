@@ -46,7 +46,7 @@ export default function DevicesShowPage({ params }: Route.ComponentProps) {
 
             if (p.type === 'success') toast.success(p.content)
             else if (p.type === 'error') toast.error(p.content)
-            else toast.show(p.content)
+            else toast.info(p.content)
           }
         },
         onError: (err) => toast.error(err.message),

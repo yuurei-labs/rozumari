@@ -13,7 +13,7 @@ export default function AuthRoot() {
     let isMounted = true
 
     if (status === 'authenticated' && isMounted)
-      navigate('/dashboard', { replace: true })
+      void navigate('/dashboard', { replace: true })
 
     return () => {
       isMounted = false

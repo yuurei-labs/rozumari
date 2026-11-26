@@ -29,20 +29,6 @@ export const LEVEL_METAS = {
   },
 }
 
-// function formatGroup(date: Date) {
-//   const today = new Date()
-//   if (date.toDateString() === today.toDateString()) return 'Today'
-//   if (
-//     date.toDateString() ===
-//     new Date(today.getTime() - 86_400_000).toDateString()
-//   )
-//     return 'Yesterday'
-//   // return new Intl.DateTimeFormat('en-US', {
-//   //   month: 'long',
-//   //   day: 'numeric',
-//   // }).format(date)
-// }
-
 export const NotificationList: React.FC<{
   notifications: ListNotificationsDto[]
 }> = ({ notifications }) => {
@@ -57,7 +43,7 @@ export const NotificationList: React.FC<{
     > = {}
     for (const item of notificationList) {
       const group = formatDistanceDays(item.createdAt)
-      if (!grouped[group]) grouped[group] = []
+      grouped[group] ??= []
       grouped[group].push(item)
     }
 
@@ -76,7 +62,7 @@ export const NotificationList: React.FC<{
 
       <section className='overflow-hidden rounded-xl border border-border bg-card shadow-sm'>
         {items.map((item, index) => {
-          const meta = LEVEL_METAS[item.level as keyof typeof LEVEL_METAS]
+          const meta = LEVEL_METAS[item.level]
 
           return (
             <Link

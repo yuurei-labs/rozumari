@@ -39,10 +39,10 @@ function ChangePasswordFormSubmit({
   const handleSubmit = changePasswordForm.useSubmit(
     (payload) => api.auth['change-password'].mutateEffect({ payload }),
     {
-      onSuccess: () => {
+      onSuccess: async () => {
         toast.success('Password changed successfully. Please log in again.')
         logout()
-        navigate('/login', { replace: true })
+        await navigate('/login', { replace: true })
       },
       onError: (error) => toast.error(error.message),
     }

@@ -54,9 +54,10 @@ export const ScheduleNav: React.FC<{
   }, [startDate, endDate])
 
   const syncSchedule = useMutation({
-    ...api.device.emit.mutationOptions({
-      params: { id: deviceId as DeviceId },
-    }),
+    ...(deviceId &&
+      api.device.emit.mutationOptions({
+        params: { id: deviceId },
+      })),
   })
 
   return (

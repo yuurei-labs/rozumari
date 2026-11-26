@@ -9,6 +9,7 @@ import {
 } from '@rozumari/ui/components/select'
 import { Typography } from '@rozumari/ui/components/typography'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Platform, View } from 'react-native'
 
 import { useBLE } from '@/components/profile/config/_context'
@@ -27,6 +28,7 @@ function formatDateToSyncTime(date: Date): string {
 }
 
 export const BLEGeneralConfig: React.FC = () => {
+  const { t } = useTranslation(['common', 'profile'])
   const { config, send } = useBLE()
 
   const [syncTime, setSyncTime] = React.useState<string>(
@@ -49,7 +51,9 @@ export const BLEGeneralConfig: React.FC = () => {
   return (
     <View className='gap-4'>
       <View className='gap-1.5'>
-        <Typography className='font-medium'>Sync Time</Typography>
+        <Typography className='font-medium'>
+          {t('profile:config.sync.title')}
+        </Typography>
         <Button variant='outline' onPress={() => setShowTimePicker(true)}>
           {syncTime}
         </Button>
@@ -72,7 +76,9 @@ export const BLEGeneralConfig: React.FC = () => {
       </View>
 
       <View className='gap-1.5'>
-        <Typography className='font-medium'>Timezone</Typography>
+        <Typography className='font-medium'>
+          {t('profile:config.utc.title')}
+        </Typography>
         <Select
           value={String(timezone)}
           onValueChange={(val) => setTimezone(Number(val))}
@@ -82,9 +88,11 @@ export const BLEGeneralConfig: React.FC = () => {
           }))}
         >
           <SelectTrigger>
-            <SelectValue placeholder='Select timezone' />
+            <SelectValue
+              placeholder={t('profile:config.utc.selector.placeholder')}
+            />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent title={t('profile:config.utc.title')}>
             {TIMEZONE_OPTIONS.map((tz) => (
               <SelectItem key={tz.value} value={String(tz.value)}>
                 {tz.label}
@@ -95,16 +103,20 @@ export const BLEGeneralConfig: React.FC = () => {
       </View>
 
       <View className='gap-1.5'>
-        <Typography className='font-medium'>Language</Typography>
+        <Typography className='font-medium'>
+          {t('profile:config.language.title')}
+        </Typography>
         <Select
           value={language}
           onValueChange={setLanguage}
           items={LANGUAGE_OPTIONS}
         >
           <SelectTrigger>
-            <SelectValue placeholder='Select language' />
+            <SelectValue
+              placeholder={t('profile:config.language.selector.placeholder')}
+            />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent title={t('profile:config.language.selector.title')}>
             {LANGUAGE_OPTIONS.map((lang) => (
               <SelectItem key={lang.value} value={lang.value}>
                 {lang.label}
@@ -117,7 +129,7 @@ export const BLEGeneralConfig: React.FC = () => {
       <Button
         onPress={() => send(`general.${timezone}.${syncTime}.${language}`)}
       >
-        Save Changes
+        {t('common:save_changes')}
       </Button>
     </View>
   )

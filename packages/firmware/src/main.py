@@ -6,6 +6,7 @@ from machine import Pin, reset
 
 from lib.config import Config
 from lib.constants import MODE_SWITCH
+from lib.i18n import translate as _t
 from lib.logger import Logger
 from lib.singleton import Singleton
 from lib.utils import Utils
@@ -52,12 +53,12 @@ class Main(Singleton):
 
         steps = (
             (
-                f"Connecting to {ssid}...",
+                _t("lcd_connecting_wifi", ssid=ssid),
                 self._wifi.connect(ssid, password),
                 "WiFi connect failed",
             ),
-            ("Syncing time...", self._utils.sync_time(), "Time sync failed"),
-            ("Syncing info...", SyncInfo().execute(), "Info sync failed"),
+            (_t("lcd_syncing_time"), self._utils.sync_time(), "Time sync failed"),
+            (_t("lcd_syncing_info"), SyncInfo().execute(), "Info sync failed"),
         )
         for msg, coro, err in steps:
             self._lcd.fill_rect((0, 72), (160, 24), ST7735.BLACK)
@@ -82,7 +83,7 @@ class Main(Singleton):
 
     async def _config_flow(self) -> None:
         self._draw_header()
-        self._lcd.text((0, 80), "Advertise at", ST7735.WHITE, center=True)
+        self._lcd.text((0, 80), _t("lcd_advertise_at"), ST7735.WHITE, center=True)
         self._lcd.text((0, 96), self._ble.get_mac(), ST7735.WHITE, center=True)
 
     async def execute(self) -> None:

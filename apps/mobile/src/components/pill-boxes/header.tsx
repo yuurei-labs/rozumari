@@ -19,7 +19,8 @@ import { UpdateDeviceButton } from '@/components/pill-boxes/update-device-button
 
 export function PillBoxDetailsHeader({
   device,
-}: Readonly<{ device: ShowDeviceDto.Output }>) {
+  timestamp,
+}: Readonly<{ device: ShowDeviceDto.Output; timestamp: Date }>) {
   const { t, i18n } = useTranslation(['common', 'pill-box'])
   const status = STATUS_MAPPERS[device.status]
 
@@ -31,7 +32,7 @@ export function PillBoxDetailsHeader({
           {device?.name ?? t('pill-box:details.device.unnamed_device')}
         </CardTitle>
 
-        <UpdateDeviceButton device={device} />
+        <UpdateDeviceButton device={device} timestamp={timestamp} />
       </CardHeader>
 
       <CardContent className='gap-3'>

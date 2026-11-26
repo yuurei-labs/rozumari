@@ -30,8 +30,7 @@ export const ScheduleCard: React.FC<{
   const { t } = useTranslation('schedule')
   const router = useRouter()
 
-  const statusConfig =
-    STATUS_CONFIG[schedule.status as keyof typeof STATUS_CONFIG]
+  const statusConfig = STATUS_CONFIG[schedule.status]
 
   return (
     <Card

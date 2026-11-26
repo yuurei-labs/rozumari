@@ -6,11 +6,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@rozumari/ui/components/select'
+import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 
 import { useBLE } from '@/components/profile/config/_context'
 
 export const BLEConnection: React.FC = () => {
+  const { t } = useTranslation(['common', 'pill-box', 'profile'])
   const { status, startScan, devices, device, setDevice, connect, disconnect } =
     useBLE()
 
@@ -21,17 +23,20 @@ export const BLEConnection: React.FC = () => {
         onValueChange={setDevice}
         items={devices.map((dev) => ({
           value: dev.id,
-          label: `${dev.name} (${dev.id})`,
+          label: dev.name ?? t('pill-box:details.device.unnamed_device'),
         }))}
       >
         <SelectTrigger disabled={status !== 'idle'}>
-          <SelectValue />
+          <SelectValue
+            placeholder={t('profile:config.device.selector.placeholder')}
+          />
         </SelectTrigger>
 
-        <SelectContent>
+        <SelectContent title={t('profile:config.device.selector.title')}>
           {devices.map((dev) => (
             <SelectItem key={dev.id} value={dev.id}>
-              {dev.name} ({dev.id})
+              {dev.name ?? t('pill-box:details.device.unnamed_device')} (
+              {dev.id})
             </SelectItem>
           ))}
         </SelectContent>
@@ -45,21 +50,25 @@ export const BLEConnection: React.FC = () => {
             disabled={status !== 'idle'}
             onPress={startScan}
           >
-            Scan
+            {status === 'scanning'
+              ? t('profile:config.actions.scanning')
+              : t('profile:config.actions.scan')}
           </Button>
           <Button
             className='flex-1'
             disabled={status === 'connecting'}
             onPress={connect}
           >
-            Connect
+            {status === 'connecting'
+              ? t('profile:config.actions.connecting')
+              : t('profile:config.actions.connect')}
           </Button>
         </View>
       )}
 
       {status === 'connected' && (
         <Button variant='destructive' onPress={disconnect}>
-          Disconnect
+          {t('profile:config.actions.disconnect')}
         </Button>
       )}
     </View>

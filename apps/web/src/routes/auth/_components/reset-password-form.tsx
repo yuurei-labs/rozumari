@@ -53,8 +53,8 @@ function ResetPasswordFormSubmit({
         payload,
       }),
     {
-      onSuccess: () => {
-        navigate('/login', { replace: true })
+      onSuccess: async () => {
+        await navigate('/login', { replace: true })
         toast.success(
           'Password reset successfully. You can now log in with your new password.'
         )

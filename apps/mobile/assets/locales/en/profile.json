@@ -116,8 +116,7 @@
           "success": "Discard duration updated successfully.",
           "failed": "Failed to update discard duration. Please try again."
         }
-      },
-      "save": "Save"
+      }
     },
     "actions": {
       "scan": "Scan",

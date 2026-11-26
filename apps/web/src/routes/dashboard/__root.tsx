@@ -26,7 +26,7 @@ export default function DashboardRoot() {
     let isMounted = true
 
     if (status === 'unauthenticated' && isMounted)
-      navigate('/login', { replace: true })
+      void navigate('/login', { replace: true })
 
     return () => {
       isMounted = false

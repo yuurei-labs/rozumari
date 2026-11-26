@@ -16,6 +16,7 @@ from lib.constants import (
     STEPPER_DISCARD,
     STEPPER_DRAWER,
 )
+from lib.i18n import translate as _t
 from lib.logger import Logger
 from lib.picozero import Servo, Speaker, Stepper
 from lib.singleton import Singleton
@@ -126,12 +127,12 @@ class Drop(Singleton):
             await asyncio.sleep_ms(500)
 
         if self.required_failures:
-            msg = f"Dispense finished with {len(self.required_failures)} required failure(s)."
+            msg = _t("notify_required_failures", count=len(self.required_failures))
 
             self._logger.error(msg)
             await self._notify.send(
                 "error",
-                "Schedule" if schedule_id else "Drop" + " failed",
+                _t("notify_schedule_failed" if schedule_id else "notify_drop_failed"),
                 msg,
                 {
                     "required_failures": self.required_failures,
@@ -172,12 +173,12 @@ class Drop(Singleton):
 
             while time.ticks_diff(time.ticks_ms(), start_check_ms) < close_timeout_ms:
                 if self._check_detected or self._sensor_check.value() == 0:
-                    msg = "Untaken medicine detected! User did not take pills."
+                    msg = _t("notify_untaken_medicine")
                     self._logger.error(msg)
                     self._stepper_discard.rotate(1 / 16, direction="ccw")
                     await self._notify.send(
                         "error",
-                        "Medicine not taken",
+                        _t("notify_medicine_not_taken"),
                         msg,
                         {"optional_failures": self.optional_failures},
                         schedule_id,
@@ -195,24 +196,28 @@ class Drop(Singleton):
         self._stepper_discard.rotate(1 / 16, direction="ccw")
 
         if self.optional_failures:
-            msg = (
-                f"Medicine taken, but {len(self.optional_failures)} "
-                f"optional item(s) failed to drop."
+            msg = _t(
+                "notify_dispense_optional_failures", count=len(self.optional_failures)
             )
+
             self._logger.warning(msg)
             await self._notify.send(
                 "warning",
-                "Schedule" if schedule_id else "Drop" + " completed with warning",
+                _t("notify_schedule_warning" if schedule_id else "notify_drop_warning"),
                 msg,
                 {"optional_failures": self.optional_failures},
                 schedule_id,
             )
         else:
-            msg = "Medicine schedule cycle completed successfully!"
+            msg = _t("notify_dispense_success")
             self._logger.info(msg)
             await self._notify.send(
                 "info",
-                "Schedule" if schedule_id else "Drop" + " completed",
+                _t(
+                    "notify_schedule_completed"
+                    if schedule_id
+                    else "notify_drop_completed"
+                ),
                 msg,
                 {},
                 schedule_id,

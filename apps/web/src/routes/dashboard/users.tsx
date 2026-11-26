@@ -62,7 +62,9 @@ export default function UsersPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              setQuery({ query: e.currentTarget.query.value, page: 1 })
+              const formData = new FormData(e.currentTarget)
+              const q = formData.get('query') as string
+              void setQuery({ query: q, page: 1 })
             }}
           />
         }
@@ -97,10 +99,7 @@ export default function UsersPage() {
           role: {
             header: 'Role',
             action: (item) => (
-              <Badge
-                className='capitalize'
-                variant={ROLE_VARIANTS[item.role as keyof typeof ROLE_VARIANTS]}
-              >
+              <Badge className='capitalize' variant={ROLE_VARIANTS[item.role]}>
                 {item.role}
               </Badge>
             ),
