@@ -1,3 +1,9 @@
+## @rozumari/firmware@0.2.8
+
+### Bug Fixes
+
+- Missing lib
+
 ## @rozumari/firmware@0.2.7
 
 ### Patch Changes
