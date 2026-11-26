@@ -1,3 +1,9 @@
+## @rozumari/firmware@0.2.6
+
+### Patch Changes
+
+- Trigger build
+
 ## @rozumari/firmware@0.2.5
 
 ### Patch Change

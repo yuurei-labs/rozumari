@@ -1,3 +1,9 @@
+## @rozumari/mobile@0.2.12
+
+### Patch Changes
+
+- Trigger build
+
 ## @rozumari/mobile@0.2.10
 
 ### Patch Changes
