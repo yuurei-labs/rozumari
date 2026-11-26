@@ -6,7 +6,6 @@ from micropython import const
 
 from lib.config import Config
 from lib.constants import (
-    BUTTON,
     BUZZER,
     SENSOR_CHECK,
     SENSOR_DROP,
@@ -18,8 +17,9 @@ from lib.constants import (
     STEPPER_DRAWER,
 )
 from lib.logger import Logger
-from lib.picozero import Button, Servo, Speaker, Stepper
+from lib.picozero import Servo, Speaker, Stepper
 from lib.singleton import Singleton
+from modules.button import Button
 
 try:
     from typing import TypedDict
@@ -58,22 +58,17 @@ class Drop(Singleton):
         self._sensor_check = Pin(SENSOR_CHECK, Pin.IN, Pin.PULL_UP)
 
         self._buzzer = Speaker(BUZZER)
-        self._button = Button(BUTTON)
+        self._button = Button()
 
         self._drop_count = 0
         self._last_drop_ms = 0
         self._check_detected = False
         self._last_check_ms = 0
-        self._button_pressed = False
 
         self.optional_failures: list[Item] = []
         self.required_failures: list[Item] = []
 
         self._sensor_drop.irq(trigger=DROP_IRQ_TRIGGER, handler=self._on_pill_drop)
-        self._button.when_activated = self._on_button_pressed
-
-    def _on_button_pressed(self) -> None:
-        self._button_pressed = True
 
     def _on_pill_drop(self, pin: Pin) -> None:
         now = time.ticks_ms()
@@ -91,10 +86,7 @@ class Drop(Singleton):
             self._last_check_ms = now
             self._check_detected = True
 
-    async def execute(self, items: "list[Item]") -> bool:
-        if not items:
-            return True
-
+    async def execute(self, items: "list[Item] | list[dict]") -> bool:
         self.optional_failures.clear()
         self.required_failures.clear()
 
@@ -103,20 +95,25 @@ class Drop(Singleton):
         close_timeout = int(self._config.timeout.get("close", 10))
 
         for item in items:
-            slot = item.get("slot", "")
+            slot = str(item.get("slot", ""))
             quantity = int(item.get("quantity", 1))
             is_required = bool(item.get("isRequired", True))
 
             success = await self._dispense_slot(slot, quantity, drop_timeout)
 
             if not success:
+                typed_item: Item = {
+                    "slot": slot,
+                    "quantity": quantity,
+                    "isRequired": is_required,
+                }
                 if is_required:
-                    self.required_failures.append(item)
+                    self.required_failures.append(typed_item)
                     self._logger.error(
                         f"Drop failed for REQUIRED item at slot {slot} (qty: {quantity})!"
                     )
                 else:
-                    self.optional_failures.append(item)
+                    self.optional_failures.append(typed_item)
                     self._logger.warning(
                         f"Drop failed for OPTIONAL item at slot {slot} (qty: {quantity}). Continuing..."
                     )
@@ -179,13 +176,13 @@ class Drop(Singleton):
         return True
 
     async def _wait_for_user_or_timeout(self, timeout_s: int) -> None:
-        self._button_pressed = False
+        self._button.clear_pressed()
         start_ms = time.ticks_ms()
         timeout_ms = timeout_s * 1000
         last_beep_ms = time.ticks_ms() - 1000  # pyright: ignore[reportOperatorIssue]
 
         while time.ticks_diff(time.ticks_ms(), start_ms) < timeout_ms:
-            if self._button_pressed or self._button.is_active:
+            if self._button.consume_pressed():
                 self._logger.info("User pressed button!")
                 self._buzzer.play(880, 0.1)
                 break
