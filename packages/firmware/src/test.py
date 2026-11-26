@@ -1,22 +1,22 @@
-import asyncio
+import time
 
-from lib.config import Config
-from services.drop import Drop
+from lib.constants import BUTTON, BUZZER, STEPPER_DRAWER
+from lib.picozero import Button, Speaker, Stepper
 
-drop = Drop()
-
-
-async def main():
-    Config().load()
-
-    while True:
-        await drop.execute([{"slot": "0-0", "quantity": 1}])
-        await asyncio.sleep(5)
+button = Button(BUTTON)
+buzzer = Speaker(BUZZER)
+stepper = Stepper(STEPPER_DRAWER)
 
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        for servo in drop._servos.values():
-            servo.off()
+def pressed():
+    buzzer.play(440, 0.1)
+
+
+button.when_activated = pressed
+
+stepper.rotate(1 / 16, direction="cw")
+# 1 / 3 -> drawer
+# 1 / 16 -> discard
+
+while True:
+    time.sleep(1)

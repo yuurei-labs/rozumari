@@ -6,6 +6,8 @@ from micropython import const
 
 from lib.config import Config
 from lib.constants import (
+    BUTTON,
+    BUZZER,
     SENSOR_CHECK,
     SENSOR_DROP,
     SERVO00,
@@ -16,7 +18,7 @@ from lib.constants import (
     STEPPER_DRAWER,
 )
 from lib.logger import Logger
-from lib.picozero import Servo, Stepper
+from lib.picozero import Button, Servo, Speaker, Stepper
 from lib.singleton import Singleton
 
 try:
@@ -49,26 +51,56 @@ class Drop(Singleton):
             "1-1": Servo(SERVO11),
         }
 
-        self._stepper_drawer = Stepper(STEPPER_DRAWER, step_sequence="half")
-        self._stepper_discard = Stepper(STEPPER_DISCARD, step_sequence="half")
+        self._stepper_drawer = Stepper(STEPPER_DRAWER)
+        self._stepper_discard = Stepper(STEPPER_DISCARD)
 
         self._sensor_drop = Pin(SENSOR_DROP, Pin.IN, Pin.PULL_UP)
         self._sensor_check = Pin(SENSOR_CHECK, Pin.IN, Pin.PULL_UP)
 
+        self._buzzer = Speaker(BUZZER)
+        self._button = Button(BUTTON)
+
         self._drop_count = 0
         self._last_drop_ms = 0
+        self._check_detected = False
+        self._last_check_ms = 0
+        self._button_pressed = False
 
         self.optional_failures: list[Item] = []
         self.required_failures: list[Item] = []
 
         self._sensor_drop.irq(trigger=DROP_IRQ_TRIGGER, handler=self._on_pill_drop)
+        self._button.when_activated = self._on_button_pressed
+
+    def _on_button_pressed(self) -> None:
+        self._button_pressed = True
+
+    def _on_pill_drop(self, pin: Pin) -> None:
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_drop_ms) < 200:
+            return
+        if pin.value() == 0:
+            self._last_drop_ms = now
+            self._drop_count += 1
+
+    def _on_pill_check(self, pin: Pin) -> None:
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_check_ms) < 200:
+            return
+        if pin.value() == 0:
+            self._last_check_ms = now
+            self._check_detected = True
 
     async def execute(self, items: "list[Item]") -> bool:
-        # Reset state lỗi cho lượt chạy mới
+        if not items:
+            return True
+
         self.optional_failures.clear()
         self.required_failures.clear()
 
         drop_timeout = int(self._config.timeout.get("drop", 5))
+        open_timeout = int(self._config.timeout.get("open", 10))
+        close_timeout = int(self._config.timeout.get("close", 10))
 
         for item in items:
             slot = item.get("slot", "")
@@ -93,25 +125,81 @@ class Drop(Singleton):
 
         if self.required_failures:
             self._logger.error(
-                f"Dispense finished with {len(self.required_failures)} required failure(s)."
+                f"Dispense finished with {len(self.required_failures)} required failure(s). Aborting drawer."
             )
             return False
 
         if self.optional_failures:
             self._logger.warning(
-                f"Dispense finished with {len(self.optional_failures)} optional failure(s), marked as SUCCESS."
+                f"Dispense finished with {len(self.optional_failures)} optional failure(s), proceeding to open drawer."
             )
 
+        self._logger.info("Opening drawer...")
+        self._stepper_drawer.rotate(1 / 6, direction="cw")
+        await asyncio.sleep_ms(300)
+
+        self._logger.info(f"Waiting up to {open_timeout}s for user to take medicine...")
+        await self._wait_for_user_or_timeout(open_timeout)
+
+        self._logger.info("Closing drawer...")
+        self._stepper_drawer.rotate(1 / 6, direction="ccw")
+        await asyncio.sleep_ms(300)
+
+        self._logger.info(
+            f"Opening discard gate and checking left-over pills for {close_timeout}s..."
+        )
+        self._check_detected = False
+        self._last_check_ms = 0
+        self._sensor_check.irq(trigger=DROP_IRQ_TRIGGER, handler=self._on_pill_check)
+
+        try:
+            self._stepper_discard.rotate(1 / 16, direction="cw")
+
+            start_check_ms = time.ticks_ms()
+            close_timeout_ms = close_timeout * 1000
+
+            while time.ticks_diff(time.ticks_ms(), start_check_ms) < close_timeout_ms:
+                if self._check_detected or self._sensor_check.value() == 0:
+                    self._logger.error(
+                        "Untaken medicine detected by sensor_check! User did not take pills."
+                    )
+                    self._stepper_discard.rotate(1 / 16, direction="ccw")
+                    return False
+
+                await asyncio.sleep_ms(50)
+
+        finally:
+            self._sensor_check.irq(handler=None)
+
+        self._logger.info(
+            "No left-over pills detected. Closing discard gate (1/16, ccw)..."
+        )
+        self._stepper_discard.rotate(1 / 16, direction="ccw")
+        self._logger.info("Medicine schedule cycle completed successfully!")
         return True
 
-    def _on_pill_drop(self, pin: Pin) -> None:
-        now = time.ticks_ms()
-        if time.ticks_diff(now, self._last_drop_ms) < 200:
-            return
+    async def _wait_for_user_or_timeout(self, timeout_s: int) -> None:
+        self._button_pressed = False
+        start_ms = time.ticks_ms()
+        timeout_ms = timeout_s * 1000
+        last_beep_ms = time.ticks_ms() - 1000  # pyright: ignore[reportOperatorIssue]
 
-        if pin.value() == 0:
-            self._last_drop_ms = now
-            self._drop_count += 1
+        while time.ticks_diff(time.ticks_ms(), start_ms) < timeout_ms:
+            if self._button_pressed or self._button.is_active:
+                self._logger.info("User pressed button!")
+                self._buzzer.play(880, 0.1)
+                break
+
+            now = time.ticks_ms()
+            if time.ticks_diff(now, last_beep_ms) >= 600:
+                last_beep_ms = now
+                self._buzzer.play(440, 0.1)
+
+            await asyncio.sleep_ms(50)
+        else:
+            self._logger.warning(
+                f"Open timeout ({timeout_s}s) reached without button press."
+            )
 
     async def _dispense_slot(
         self, slot: str, quantity: int, timeout_s: int = 5

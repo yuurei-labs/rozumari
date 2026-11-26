@@ -4,8 +4,14 @@ from lib.api import Api
 from lib.logger import Logger
 from lib.picozero import pico_led
 from lib.singleton import Singleton
+from services.drop import Drop
 from services.sync_info import SyncInfo
 from services.sync_schedule import SyncSchedule
+
+try:
+    from services.drop import Item
+except Exception:
+    pass
 
 
 class SubcribeTask(Singleton):
@@ -42,6 +48,23 @@ class SubcribeTask(Singleton):
                     self._logger.info("Schedule synced!")
                 else:
                     self._logger.error("Schedule sync failed!")
+
+            if action == "drop":
+                raw_items = command.get("payload", [])
+                items: list[Item] = [
+                    {
+                        "slot": str(item.get("slot", "")),
+                        "quantity": int(item.get("quantity", 1)),
+                        "isRequired": True,
+                    }
+                    for item in raw_items
+                    if isinstance(item, dict) and item.get("slot")
+                ]
+
+                if await Drop().execute(items):
+                    self._logger.info("Drop success!")
+                else:
+                    self._logger.info("Drop failed!")
 
         except Exception as e:
             self._logger.error(f"Error handling message: {e}")

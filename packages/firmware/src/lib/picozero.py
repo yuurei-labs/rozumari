@@ -996,7 +996,7 @@ class Speaker(OutputDevice, PinMixin):
             on_time, off_time, n, wait, fade_in_time, fade_out_time, fps
         )
 
-    def play(self, tune=440, duration=1, volume=1, n=1, wait=True):
+    def play(self, tune=440, duration: float = 1, volume=1, n=1, wait=True):
         """
         Plays a tune for a given duration.
 
