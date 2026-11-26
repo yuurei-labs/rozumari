@@ -26,7 +26,7 @@ try:
         slot: str
         quantity: int
         isRequired: bool
-except:
+except Exception:
     pass
 
 SERVO_SLOW_SPEED = const(0.56)
@@ -48,6 +48,7 @@ class Drop(Singleton):
             "1-0": Servo(SERVO10),
             "1-1": Servo(SERVO11),
         }
+
         self._stepper_drawer = Stepper(STEPPER_DRAWER, step_sequence="half")
         self._stepper_discard = Stepper(STEPPER_DISCARD, step_sequence="half")
 
@@ -57,19 +58,49 @@ class Drop(Singleton):
         self._drop_count = 0
         self._last_drop_ms = 0
 
+        self.optional_failures: list[Item] = []
+        self.required_failures: list[Item] = []
+
         self._sensor_drop.irq(trigger=DROP_IRQ_TRIGGER, handler=self._on_pill_drop)
 
     async def execute(self, items: "list[Item]") -> bool:
+        # Reset state lỗi cho lượt chạy mới
+        self.optional_failures.clear()
+        self.required_failures.clear()
+
         drop_timeout = int(self._config.timeout.get("drop", 5))
+
         for item in items:
             slot = item.get("slot", "")
             quantity = int(item.get("quantity", 1))
+            is_required = bool(item.get("isRequired", True))
 
             success = await self._dispense_slot(slot, quantity, drop_timeout)
+
             if not success:
-                return False
+                if is_required:
+                    self.required_failures.append(item)
+                    self._logger.error(
+                        f"Drop failed for REQUIRED item at slot {slot} (qty: {quantity})!"
+                    )
+                else:
+                    self.optional_failures.append(item)
+                    self._logger.warning(
+                        f"Drop failed for OPTIONAL item at slot {slot} (qty: {quantity}). Continuing..."
+                    )
 
             await asyncio.sleep_ms(500)
+
+        if self.required_failures:
+            self._logger.error(
+                f"Dispense finished with {len(self.required_failures)} required failure(s)."
+            )
+            return False
+
+        if self.optional_failures:
+            self._logger.warning(
+                f"Dispense finished with {len(self.optional_failures)} optional failure(s), marked as SUCCESS."
+            )
 
         return True
 
@@ -83,7 +114,7 @@ class Drop(Singleton):
             self._drop_count += 1
 
     async def _dispense_slot(
-        self, slot: str, quantity: int, timeout_s: int = 3
+        self, slot: str, quantity: int, timeout_s: int = 5
     ) -> bool:
         servo = self._servos.get(slot)
         if not servo:
@@ -96,7 +127,6 @@ class Drop(Singleton):
         self._logger.info(f"Slot {slot}: Dispensing {quantity} pill(s)...")
         self._drop_count = 0
         last_seen_count = 0
-
         start_ms = time.ticks_ms()
         timeout_ms = timeout_s * 1000
 
@@ -110,7 +140,6 @@ class Drop(Singleton):
                     self._logger.info(
                         f"Slot {slot}: Dropped {self._drop_count}/{quantity}"
                     )
-
                     if self._drop_count < quantity:
                         servo.off()
                         await asyncio.sleep_ms(150)
@@ -127,5 +156,6 @@ class Drop(Singleton):
 
             self._logger.info(f"Slot {slot}: Completed ({quantity}/{quantity})")
             return True
+
         finally:
             servo.off()

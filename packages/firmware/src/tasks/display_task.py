@@ -93,10 +93,14 @@ class DisplayTask(Singleton):
             status = str(s.get("status", "pending")).lower()
             if status == "pending":
                 color = ST7735.YELLOW
-            elif status in ("completed", "done"):
+            elif status == "processing":
+                color = ST7735.CYAN
+            elif status == "completed":
                 color = ST7735.GREEN
-            elif status in ("failed"):
+            elif status == "failed":
                 color = ST7735.RED
+            else:
+                color = ST7735.WHITE
 
             info_str = f"{hh_mm:<5} | {items_str:<5} | "
             self._lcd.text((4, y), info_str, ST7735.WHITE)

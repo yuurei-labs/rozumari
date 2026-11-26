@@ -4,6 +4,7 @@ from lib.api import Api
 from lib.logger import Logger
 from lib.picozero import pico_led
 from lib.singleton import Singleton
+from services.sync_info import SyncInfo
 from services.sync_schedule import SyncSchedule
 
 
@@ -29,6 +30,12 @@ class SubcribeTask(Singleton):
                 value = int(payload)
                 pico_led.value = value
                 self._logger.info(f"Led: {'ON' if value else 'OFF'}")
+
+            if action == "sync_info":
+                if await SyncInfo().execute():
+                    self._logger.info("Info synced!")
+                else:
+                    self._logger.error("Info sync failed!")
 
             if action == "sync_schedule":
                 if await SyncSchedule().execute():
