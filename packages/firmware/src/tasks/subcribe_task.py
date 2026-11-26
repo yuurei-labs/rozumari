@@ -5,6 +5,7 @@ from lib.logger import Logger
 from lib.picozero import pico_led
 from lib.singleton import Singleton
 from services.drop import Drop
+from services.notify import Notify
 from services.sync_info import SyncInfo
 from services.sync_schedule import SyncSchedule
 
@@ -19,6 +20,7 @@ class SubcribeTask(Singleton):
         super().__init__()
 
         self._api = Api()
+        self._notify = Notify()
         self._logger = Logger("Subcribe")
 
     async def execute(self):
@@ -38,22 +40,44 @@ class SubcribeTask(Singleton):
                 self._logger.info(f"Led: {'ON' if value else 'OFF'}")
 
             if action == "sync_info":
+                await self._notify.emit(
+                    {"type": "info", "content": "Sync info command received"}
+                )
                 if await SyncInfo().execute():
                     self._logger.info("Info synced!")
+                    await self._notify.emit(
+                        {"type": "success", "content": "Sync info command success!"}
+                    )
                 else:
                     self._logger.error("Info sync failed!")
+                    await self._notify.emit(
+                        {"type": "error", "content": "Sync info command failed!"}
+                    )
 
             if action == "sync_schedule":
+                await self._notify.emit(
+                    {"type": "info", "content": "Sync schedule command received"}
+                )
                 if await SyncSchedule().execute():
                     self._logger.info("Schedule synced!")
+                    await self._notify.emit(
+                        {"type": "success", "content": "Sync schedule command success!"}
+                    )
                 else:
                     self._logger.error("Schedule sync failed!")
+                    await self._notify.emit(
+                        {"type": "error", "content": "Sync schedule command failed!"}
+                    )
 
             if action == "drop":
+                await self._notify.emit(
+                    {"type": "info", "content": "Drop command received"}
+                )
                 raw_items = command.get("payload", [])
                 items: list[Item] = [
                     {
                         "slot": str(item.get("slot", "")),
+                        "medicine": str(item.get("medicine", "")),
                         "quantity": int(item.get("quantity", 1)),
                         "isRequired": True,
                     }
@@ -63,8 +87,14 @@ class SubcribeTask(Singleton):
 
                 if await Drop().execute(items):
                     self._logger.info("Drop success!")
+                    await self._notify.emit(
+                        {"type": "success", "content": "Drop command success!"}
+                    )
                 else:
                     self._logger.info("Drop failed!")
+                    await self._notify.emit(
+                        {"type": "error", "content": "Drop command failed!"}
+                    )
 
         except Exception as e:
             self._logger.error(f"Error handling message: {e}")

@@ -20,12 +20,14 @@ from lib.logger import Logger
 from lib.picozero import Servo, Speaker, Stepper
 from lib.singleton import Singleton
 from modules.button import Button
+from services.notify import Notify
 
 try:
     from typing import TypedDict
 
     class Item(TypedDict):
         slot: str
+        medicine: str
         quantity: int
         isRequired: bool
 except Exception:
@@ -43,6 +45,7 @@ class Drop(Singleton):
 
         self._logger = Logger("Drop")
         self._config = Config()
+        self._notify = Notify()
 
         self._servos: dict[str, Servo] = {
             "0-0": Servo(SERVO00),
@@ -86,7 +89,9 @@ class Drop(Singleton):
             self._last_check_ms = now
             self._check_detected = True
 
-    async def execute(self, items: "list[Item] | list[dict]") -> bool:
+    async def execute(
+        self, items: "list[Item] | list[dict]", schedule_id: str | None = None
+    ) -> bool:
         self.optional_failures.clear()
         self.required_failures.clear()
 
@@ -96,15 +101,15 @@ class Drop(Singleton):
 
         for item in items:
             slot = str(item.get("slot", ""))
+            medicine = str(item.get("medicine", "Unknown"))
             quantity = int(item.get("quantity", 1))
             is_required = bool(item.get("isRequired", True))
 
-            success = await self._dispense_slot(slot, quantity, drop_timeout)
-
-            if not success:
+            if not await self._dispense_slot(slot, quantity, drop_timeout):
                 typed_item: Item = {
                     "slot": slot,
                     "quantity": quantity,
+                    "medicine": medicine,
                     "isRequired": is_required,
                 }
                 if is_required:
@@ -121,8 +126,18 @@ class Drop(Singleton):
             await asyncio.sleep_ms(500)
 
         if self.required_failures:
-            self._logger.error(
-                f"Dispense finished with {len(self.required_failures)} required failure(s). Aborting drawer."
+            msg = f"Dispense finished with {len(self.required_failures)} required failure(s)."
+
+            self._logger.error(msg)
+            await self._notify.send(
+                "error",
+                "Schedule" if schedule_id else "Drop" + " failed",
+                msg,
+                {
+                    "required_failures": self.required_failures,
+                    "optional_failures": self.optional_failures,
+                },
+                schedule_id,
             )
             return False
 
@@ -157,10 +172,16 @@ class Drop(Singleton):
 
             while time.ticks_diff(time.ticks_ms(), start_check_ms) < close_timeout_ms:
                 if self._check_detected or self._sensor_check.value() == 0:
-                    self._logger.error(
-                        "Untaken medicine detected by sensor_check! User did not take pills."
-                    )
+                    msg = "Untaken medicine detected! User did not take pills."
+                    self._logger.error(msg)
                     self._stepper_discard.rotate(1 / 16, direction="ccw")
+                    await self._notify.send(
+                        "error",
+                        "Medicine not taken",
+                        msg,
+                        {"optional_failures": self.optional_failures},
+                        schedule_id,
+                    )
                     return False
 
                 await asyncio.sleep_ms(50)
@@ -172,6 +193,31 @@ class Drop(Singleton):
             "No left-over pills detected. Closing discard gate (1/16, ccw)..."
         )
         self._stepper_discard.rotate(1 / 16, direction="ccw")
+
+        if self.optional_failures:
+            msg = (
+                f"Medicine taken, but {len(self.optional_failures)} "
+                f"optional item(s) failed to drop."
+            )
+            self._logger.warning(msg)
+            await self._notify.send(
+                "warning",
+                "Schedule" if schedule_id else "Drop" + " completed with warning",
+                msg,
+                {"optional_failures": self.optional_failures},
+                schedule_id,
+            )
+        else:
+            msg = "Medicine schedule cycle completed successfully!"
+            self._logger.info(msg)
+            await self._notify.send(
+                "info",
+                "Schedule" if schedule_id else "Drop" + " completed",
+                msg,
+                {},
+                schedule_id,
+            )
+
         self._logger.info("Medicine schedule cycle completed successfully!")
         return True
 
