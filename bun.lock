@@ -134,7 +134,7 @@
     },
     "packages/firmware": {
       "name": "@rozumari/firmware",
-      "version": "0.2.9",
+      "version": "0.2.10",
     },
     "packages/lib": {
       "name": "@rozumari/lib",

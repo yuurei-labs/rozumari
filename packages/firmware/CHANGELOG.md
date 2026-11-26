@@ -1,3 +1,9 @@
+## @rozumari/firmware@0.2.10
+
+### Bug Fixes
+
+- gc collect make it crash
+
 ## @rozumari/firmware@0.2.9
 
 ### Bug Fixes
