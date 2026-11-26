@@ -102,13 +102,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
-      'expo-location',
-      {
-        locationAlwaysAndWhenInUsePermission:
-          'Allow $(PRODUCT_NAME) to use your location.',
-      },
-    ],
-    [
       'expo-secure-store',
       {
         configureAndroidBackup: true,

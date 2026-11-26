@@ -2,29 +2,23 @@ import { useFocusEffect } from 'expo-router'
 import { useCallback } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 
-import { useBLE, BLEProvider } from '@/components/profile/config/_context'
-import { BLEConnection } from '@/components/profile/config/ble-connection'
-import { LanguageConfig } from '@/components/profile/config/language-config'
-import { SyncTimeConfig } from '@/components/profile/config/sync-time-config'
-import { TimeoutConfig } from '@/components/profile/config/timeout-config'
-import { UtcConfig } from '@/components/profile/config/utc-config'
-import { WifiConfig } from '@/components/profile/config/wifi-config'
+import { BLEProvider, useBLE } from '@/components/profile/config/_context'
+import { BLEConnection } from '@/components/profile/config/connection'
+import { BLEGeneralConfig } from '@/components/profile/config/general'
+import { BLETimeoutConfig } from '@/components/profile/config/timeout'
+import { BLEWifiConfig } from '@/components/profile/config/wifi'
 
 function ConfigContent() {
-  const { deviceInfo, status, disconnect } = useBLE()
+  const { status, config, disconnect } = useBLE()
 
   useFocusEffect(
     useCallback(
-      () => () => {
-        if (status === 'connected') void disconnect()
-      },
+      () => () => status === 'connected' && disconnect(),
       [status, disconnect]
     )
   )
 
-  const configKey = deviceInfo
-    ? `${deviceInfo.utc}-${deviceInfo.language}`
-    : 'default'
+  const configKey = config ? JSON.stringify(config) : 'default'
 
   return (
     <KeyboardAvoidingView
@@ -39,12 +33,11 @@ function ConfigContent() {
       >
         <BLEConnection />
 
-        <LanguageConfig key={`${configKey}-lang`} />
-        <UtcConfig key={`${configKey}-utc`} />
-        <SyncTimeConfig key={`${configKey}-sync`} />
-        <TimeoutConfig key={`${configKey}-timeout`} />
+        <BLEGeneralConfig key={`${configKey}-general`} />
 
-        <WifiConfig />
+        <BLETimeoutConfig key={`${configKey}-timeout`} />
+
+        <BLEWifiConfig key={`${configKey}-wifi`} />
       </ScrollView>
     </KeyboardAvoidingView>
   )

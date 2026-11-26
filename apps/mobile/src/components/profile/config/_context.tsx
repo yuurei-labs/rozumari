@@ -1,377 +1,273 @@
-// oxlint-disable no-bitwise typescript/no-unsafe-call promise/prefer-await-to-then promise/prefer-await-to-callbacks
-import type { Device, BleManager as TBleManager } from 'react-native-ble-plx'
+import type {
+  Device,
+  Subscription,
+  BleManager as TBleManager,
+} from 'react-native-ble-plx'
 
 import { toast } from '@rozumari/ui/components/toast'
 import * as Base64 from 'effect/encoding/Base64'
 import * as React from 'react'
-import { useTranslation } from 'react-i18next'
+import { State } from 'react-native-ble-plx'
 
 import { BLE_RX_UUID, BLE_SERVICE_UUID, BLE_TX_UUID } from '@/lib/constants'
 
-let BleManager: TBleManager | null = null
-
-try {
-  // oxlint-disable-next-line node/global-require unicorn/prefer-module
-  const { BleManager: _BleManager } = require('react-native-ble-plx') as {
-    BleManager: typeof TBleManager
-  }
-
-  BleManager = new _BleManager()
-} catch {
-  BleManager = null
+const globalForBle = globalThis as unknown as {
+  __bleManager?: TBleManager | null
 }
 
-export const ACTION_CODES = {
-  PONG: 0,
-  CHECK_WIFI_RES: 1,
-  SET_WIFI_RES: 2,
-  SET_UTC_RES: 3,
-  SET_LANGUAGE_RES: 4,
-  SET_SYNC_TIME_RES: 5,
-  SET_DROP_TIMEOUT_RES: 6,
-  SET_OPEN_TIMEOUT_RES: 7,
-  SET_CLOSE_TIMEOUT_RES: 8,
-  SEND_DEVICE_INFO: 9,
-} as const
-
-export const STATUS_CODES = {
-  FAIL: 0,
-  SUCCESS: 1,
-} as const
-
-export type BLEStatus = 'idle' | 'scanning' | 'connecting' | 'connected'
-
-export interface DeviceInfo {
-  utc: number
-  language: 'en' | 'vi'
-  syncTime: {
-    hours: number
-    minutes: number
+function getBleManager(): TBleManager | null {
+  if (!globalForBle.__bleManager) {
+    try {
+      // oxlint-disable-next-line node/global-require unicorn/prefer-module
+      const { BleManager: _BleManager } = require('react-native-ble-plx') as {
+        BleManager: typeof TBleManager
+      }
+      globalForBle.__bleManager = new _BleManager()
+    } catch {
+      globalForBle.__bleManager = null
+    }
   }
-  timeouts: {
-    drop: number
-    open: number
-    close: number
-  }
-}
-
-export interface BLEResponse {
-  action: number
-  status: number
+  return globalForBle.__bleManager ?? null
 }
 
 interface BLEContextValue {
-  status: BLEStatus
+  status: 'idle' | 'scanning' | 'connecting' | 'connected'
   devices: Device[]
-  selectedDevice: string | null
-  setSelectedDevice: (id: string | null) => void
-
-  deviceInfo: DeviceInfo | null
-  lastResponse: BLEResponse | null
-
+  device: string | null
+  setDevice: React.Dispatch<React.SetStateAction<string | null>>
   startScan: () => Promise<void>
   stopScan: () => Promise<void>
-  connect: () => Promise<void>
+  connect: () => Promise<Device | null>
   disconnect: () => Promise<void>
+  send: (payload: string | Record<string, unknown>) => Promise<boolean>
 
-  sendCommand: (
-    action: string,
-    payload?: Record<string, unknown>
-  ) => Promise<void>
+  config: Config | null
 }
 
-const parseDeviceInfo = (rawBytes: number[]): DeviceInfo => {
-  const [, b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0] = rawBytes
+interface Config {
+  general: { syncTime: '04:00:00'; timezone: 7; language: 'vi' }
+  timeout: { drop: 5; close: 10; open: 10 }
+}
 
-  const payload =
-    BigInt(b0) |
-    (BigInt(b1) << 8n) |
-    (BigInt(b2) << 16n) |
-    (BigInt(b3) << 24n) |
-    (BigInt(b4) << 32n)
-
-  const utcBits = Number(payload & 0x0fn)
-  const signBit = (utcBits >> 3) & 0x01
-  const absValue = utcBits & 0x07
-  const utc = signBit === 1 ? absValue : -absValue
-
-  const language: 'en' | 'vi' =
-    Number((payload >> 4n) & 0x01n) === 1 ? 'vi' : 'en'
-
-  const syncTimeBits = Number((payload >> 5n) & 0x07_ffn)
-  const hours = syncTimeBits & 0x1f
-  const minutes = (syncTimeBits >> 5) & 0x3f
-
-  return {
-    utc,
-    language,
-    syncTime: { hours, minutes },
-    timeouts: {
-      drop: Number((payload >> 16n) & 0x3fn),
-      open: Number((payload >> 22n) & 0x3fn),
-      close: Number((payload >> 28n) & 0x3fn),
-    },
-  }
+interface BLENotifyPayload {
+  type: 'success' | 'error'
+  content: string
 }
 
 const BLEContext = React.createContext<BLEContextValue | null>(null)
 
-export function BLEProvider({ children }: { children: React.ReactNode }) {
-  const { t } = useTranslation('profile')
+const useBLE = () => {
+  const ctx = React.use(BLEContext)
+  if (!ctx) throw new Error('useBLE must be used within a BLEProvider')
+  return ctx
+}
 
-  const [status, setStatus] = React.useState<BLEStatus>('idle')
+function BLEProvider({ children }: Readonly<{ children: React.ReactNode }>) {
+  const [status, setStatus] = React.useState<BLEContextValue['status']>('idle')
   const [devices, setDevices] = React.useState<Device[]>([])
-  const [selectedDevice, setSelectedDevice] = React.useState<string | null>(
-    null
-  )
-  const [deviceInfo, setDeviceInfo] = React.useState<DeviceInfo | null>(null)
-  const [lastResponse, setLastResponse] = React.useState<BLEResponse | null>(
-    null
-  )
+  const [device, setDevice] = React.useState<string | null>(null)
+  const [config, setConfig] = React.useState<Config | null>(null)
 
-  const connectedDeviceRef = React.useRef<Device | null>(null)
   const scanTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
-  const notificationRef = React.useRef<{ remove: () => void } | null>(null)
-  const disconnectRef = React.useRef<{ remove: () => void } | null>(null)
-  const writeQueueRef = React.useRef(Promise.resolve())
+  const disconnectSubRef = React.useRef<Subscription | null>(null)
+  const txMonitorSubRef = React.useRef<Subscription | null>(null)
 
   const stopScan = React.useCallback(async () => {
-    if (!BleManager) return
-
-    await BleManager.stopDeviceScan()
+    const ble = getBleManager()
+    if (!ble) return
 
     if (scanTimeoutRef.current) {
       clearTimeout(scanTimeoutRef.current)
       scanTimeoutRef.current = null
     }
 
+    await ble.stopDeviceScan()
     setStatus((current) => (current === 'scanning' ? 'idle' : current))
   }, [])
 
   const startScan = React.useCallback(async () => {
-    if (!BleManager || status === 'connected' || status === 'connecting') return
+    const ble = getBleManager()
+    if (!ble || status === 'connected' || status === 'connecting') return
 
-    await stopScan()
     setDevices([])
     setStatus('scanning')
 
-    await BleManager.startDeviceScan(null, null, (error, device) => {
-      if (error) {
-        setStatus('idle')
-        return
+    const state = await ble.state()
+    if (state !== State.PoweredOn) return setStatus('idle')
+
+    await ble.startDeviceScan(
+      null,
+      { allowDuplicates: false, scanMode: 2 },
+      (error, dev) => {
+        if (error) return setStatus('idle')
+        if (!dev) return
+
+        setDevices((curr) => {
+          if (curr.some(({ id }) => id === dev.id)) return curr
+          return [...curr, dev]
+        })
       }
-
-      if (!device) return
-
-      setDevices((current) => {
-        if (current.some(({ id }) => id === device.id)) return current
-        return [...current, device]
-      })
-    })
+    )
 
     scanTimeoutRef.current = setTimeout(() => {
       void stopScan()
     }, 5000)
   }, [status, stopScan])
 
-  const handleNotification = React.useCallback((value: string) => {
-    const bytesRes = Base64.decode(value)
-    if (bytesRes._tag === 'Failure') return
+  const connect = React.useCallback(async () => {
+    const ble = getBleManager()
+    if (!ble || ['connecting', 'connected'].includes(status) || !device)
+      return null
 
-    const bytes = [...bytesRes.success]
-    if (bytes.length >= 6) {
-      const action = ((bytes[0] ?? 0) >> 4) & 0x0f
+    if (status === 'scanning') await stopScan()
+    setStatus('connecting')
 
-      if (action === ACTION_CODES.SEND_DEVICE_INFO) {
-        setDeviceInfo(parseDeviceInfo(bytes))
+    try {
+      const dev = await ble.connectToDevice(device, {
+        requestMTU: 256,
+        timeout: 10_000,
+      })
+
+      const readyDev = await dev.discoverAllServicesAndCharacteristics()
+
+      const services = await readyDev.services()
+      const hasTargetService = services.some(
+        (s) => s.uuid.toLowerCase() === BLE_SERVICE_UUID.toLowerCase()
+      )
+      if (!hasTargetService) {
+        await ble.cancelDeviceConnection(device)
+        setStatus('idle')
+        return null
       }
 
-      return
-    }
-
-    if (bytes.length !== 1) return
-
-    const byte = bytes[0] ?? 0
-    const action = (byte >> 4) & 0x0f
-    const responseStatus = byte & 0x0f
-
-    setLastResponse({ action, status: responseStatus })
-
-    if (action === ACTION_CODES.PONG) {
-      toast.success('Pong received!')
-    }
-  }, [])
-
-  const subscribe = React.useCallback(
-    (device: Device) => {
-      notificationRef.current?.remove()
-      disconnectRef.current?.remove()
-
-      notificationRef.current = device.monitorCharacteristicForService(
+      txMonitorSubRef.current?.remove()
+      txMonitorSubRef.current = readyDev.monitorCharacteristicForService(
         BLE_SERVICE_UUID,
         BLE_TX_UUID,
+        // oxlint-disable-next-line promise/prefer-await-to-callbacks
         (error, characteristic) => {
-          if (error) {
-            return
-          }
+          if (error || !characteristic?.value) return
 
-          if (characteristic?.value) {
-            handleNotification(characteristic.value)
+          const decoded = Base64.decode(characteristic.value)
+          if (decoded._tag === 'Failure') return
+
+          const _raw = String.fromCodePoint(...decoded.success)
+          try {
+            const data = JSON.parse(_raw) as Config | BLENotifyPayload
+            if ('general' in data && 'timeout' in data) setConfig(data)
+            if ('type' in data && 'content' in data)
+              toast[data.type](data.content)
+          } catch {
+            toast.show(_raw)
           }
         }
       )
 
-      disconnectRef.current = device.onDisconnected((_error) => {
-        notificationRef.current?.remove()
-        notificationRef.current = null
-        disconnectRef.current?.remove()
-        disconnectRef.current = null
-        connectedDeviceRef.current = null
+      disconnectSubRef.current?.remove()
+      disconnectSubRef.current = ble.onDeviceDisconnected(
+        device,
+        (_error, _disconnectedDevice) => {
+          txMonitorSubRef.current?.remove()
+          txMonitorSubRef.current = null
+          disconnectSubRef.current?.remove()
+          disconnectSubRef.current = null
+          setStatus('idle')
+        }
+      )
 
-        setStatus('idle')
-        setDeviceInfo(null)
-        setLastResponse(null)
-      })
+      setStatus('connected')
+      return readyDev
+    } catch {
+      setStatus('idle')
+      return null
+    }
+  }, [stopScan, status, device])
+
+  const send = React.useCallback(
+    async (payload: string | Record<string, unknown>): Promise<boolean> => {
+      const ble = getBleManager()
+      if (!ble || status !== 'connected' || !device) return false
+
+      try {
+        const raw =
+          typeof payload === 'string' ? payload : JSON.stringify(payload)
+        const base64Data = Base64.encode(raw)
+
+        await ble.writeCharacteristicWithResponseForDevice(
+          device,
+          BLE_SERVICE_UUID,
+          BLE_RX_UUID,
+          base64Data
+        )
+        return true
+      } catch {
+        return false
+      }
     },
-    [handleNotification]
+    [status, device]
   )
 
-  const connect = React.useCallback(async () => {
-    if (!BleManager || !selectedDevice) return
-
-    try {
-      setStatus('connecting')
-      await stopScan()
-
-      const device = await BleManager.connectToDevice(selectedDevice)
-      await device.discoverAllServicesAndCharacteristics()
-
-      connectedDeviceRef.current = device
-      subscribe(device)
-      setStatus('connected')
-
-      toast.success(t('config.messages.success'))
-    } catch {
-      connectedDeviceRef.current = null
-      setStatus('idle')
-      toast.error(t('config.messages.failed'))
-    }
-  }, [selectedDevice, stopScan, subscribe, t])
-
   const disconnect = React.useCallback(async () => {
-    if (!BleManager) return
-
-    const deviceId = connectedDeviceRef.current?.id ?? selectedDevice
-    if (!deviceId) return
+    const ble = getBleManager()
+    if (!ble || status !== 'connected' || !device) return
 
     try {
-      notificationRef.current?.remove()
-      notificationRef.current = null
-      disconnectRef.current?.remove()
-      disconnectRef.current = null
+      txMonitorSubRef.current?.remove()
+      txMonitorSubRef.current = null
+      disconnectSubRef.current?.remove()
+      disconnectSubRef.current = null
 
-      await BleManager.cancelDeviceConnection(deviceId)
+      const isConnected = await ble.isDeviceConnected(device)
+      if (isConnected) await ble.cancelDeviceConnection(device)
+      setConfig(null)
     } catch {
       // noop
     } finally {
-      connectedDeviceRef.current = null
       setStatus('idle')
-      setDeviceInfo(null)
-      setLastResponse(null)
-      toast.info(t('config.messages.disconnected'))
     }
-  }, [selectedDevice, t])
+  }, [status, device])
 
-  const sendCommand = React.useCallback(
-    async (action: string, payload: Record<string, unknown> = {}) => {
-      const device = connectedDeviceRef.current
-      if (!BleManager || !device || !action.trim()) return
-
-      const message = `${JSON.stringify({
-        action: action.trim(),
-        payload,
-      })}\n`
-      const value = Base64.encode(message)
-
-      writeQueueRef.current = writeQueueRef.current.then(async () => {
-        try {
-          await BleManager?.writeCharacteristicWithResponseForDevice(
-            device.id,
-            BLE_SERVICE_UUID,
-            BLE_RX_UUID,
-            value
-          )
-        } catch (error) {
-          toast.error(t('config.messages.send_failed'))
-          throw error
-        }
-      })
-
-      await writeQueueRef.current
+  React.useEffect(
+    () => () => {
+      txMonitorSubRef.current?.remove()
+      disconnectSubRef.current?.remove()
     },
-    [t]
+    []
   )
 
-  React.useEffect(() => {
-    if (!BleManager) return
-
-    return () => {
-      void BleManager.stopDeviceScan()
-
-      if (scanTimeoutRef.current) {
-        clearTimeout(scanTimeoutRef.current)
-      }
-
-      notificationRef.current?.remove()
-      disconnectRef.current?.remove()
-
-      const device = connectedDeviceRef.current
-      if (device)
-        void BleManager.cancelDeviceConnection(device.id).catch(() => {
-          // noop
-        })
-    }
-  }, [])
-
-  const value = React.useMemo<BLEContextValue>(
+  const memoizedValue = React.useMemo(
     () => ({
       status,
       devices,
-      selectedDevice,
-      setSelectedDevice,
-      deviceInfo,
-      lastResponse,
+
+      device,
+      setDevice,
+
       startScan,
       stopScan,
+
       connect,
       disconnect,
-      sendCommand,
+      send,
+
+      config,
     }),
     [
       status,
       devices,
-      selectedDevice,
-      deviceInfo,
-      lastResponse,
+      device,
       startScan,
       stopScan,
       connect,
       disconnect,
-      sendCommand,
+      send,
+      config,
     ]
   )
 
-  return <BLEContext value={value}>{children}</BLEContext>
+  return <BLEContext value={memoizedValue}>{children}</BLEContext>
 }
 
-export function useBLE() {
-  const context = React.use(BLEContext)
-
-  if (!context) {
-    throw new Error('useBLE must be used within a BLEProvider')
-  }
-
-  return context
-}
+export { BLEProvider, useBLE }

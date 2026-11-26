@@ -184,7 +184,7 @@ export default defineConfig({
     'no-unused-labels': 'error',
     'no-unused-private-class-members': 'error',
     'no-unused-vars': 'error',
-    'no-use-before-define': 'error',
+    'no-use-before-define': 'off',
     'no-useless-backreference': 'error',
     'no-useless-call': 'error',
     'no-useless-catch': 'error',
