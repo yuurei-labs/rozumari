@@ -22,7 +22,7 @@ class BLE(Singleton):
     driver instance is initialized and controlled throughout the application lifecycle.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, name: str) -> None:
         """Initializes the GATTS service configuration and background task structures.
 
         Args:
@@ -32,7 +32,7 @@ class BLE(Singleton):
             None
         """
         super().__init__()
-        self._name = Config().device.get("name")
+        self._name = name
         self._logger = Logger("BLE")
         self._service = BleService(self._send)
         self._ble_service = aioble.Service(_SERVICE_UUID)

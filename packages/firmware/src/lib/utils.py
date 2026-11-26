@@ -3,6 +3,7 @@ import time
 
 import ntptime
 
+from lib.config import Config
 from lib.logger import Logger
 from lib.singleton import Singleton
 
@@ -10,9 +11,11 @@ from lib.singleton import Singleton
 class Utils(Singleton):
     def __init__(self) -> None:
         super().__init__()
+        self._config = Config()
 
     def get_current_time(self) -> tuple[int, ...]:
-        return time.localtime(ntptime.time())
+        timezone = int(self._config.general.get("timezone", "7"))
+        return time.localtime(time.time() + timezone * 3600)
 
     def clamp(self, value: int, _min: int, _max: int) -> int:
         return max(_min, min(_max, value))

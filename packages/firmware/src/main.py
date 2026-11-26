@@ -13,6 +13,7 @@ from modules.ble import BLE
 from modules.st7735 import ST7735
 from modules.wifi import WiFi
 from services.sync_info import SyncInfo
+from tasks.display_task import DisplayTask
 from tasks.schedule_task import ScheduleTask
 from tasks.subcribe_task import SubcribeTask
 from tasks.sync_task import SyncTask
@@ -25,10 +26,9 @@ class Main(Singleton):
         self._config.load()
 
         self._logger = Logger("Prog")
-        self._wifi = WiFi()
-        self._ble = BLE()
+        self._wifi = WiFi(self._config.device.get("name", ""))
+        self._ble = BLE(self._config.device.get("name", ""))
         self._utils = Utils()
-        self._sync_info = SyncInfo()
         self._lcd = ST7735()
 
         self._is_config_mode: bool | None = None
@@ -39,6 +39,7 @@ class Main(Singleton):
         self._sw = Pin(MODE_SWITCH, Pin.IN, Pin.PULL_UP)
         self._sw.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self._sw_irq)
 
+        self._display_task = DisplayTask()
         self._schedule_task = ScheduleTask()
         self._subcribe_task = SubcribeTask()
         self._sync_task = SyncTask()
@@ -46,14 +47,17 @@ class Main(Singleton):
     async def _normal_flow(self) -> None:
         self._draw_header()
 
+        ssid = self._config.wifi.get("ssid", "")
+        password = self._config.wifi.get("password", "")
+
         steps = (
             (
-                f"Connecting to {self._config.wifi.get('ssid')}...",
-                self._wifi.connect(),
+                f"Connecting to {ssid}...",
+                self._wifi.connect(ssid, password),
                 "WiFi connect failed",
             ),
             ("Syncing time...", self._utils.sync_time(), "Time sync failed"),
-            ("Syncing info...", self._sync_info.execute(), "Info sync failed"),
+            ("Syncing info...", SyncInfo().execute(), "Info sync failed"),
         )
         for msg, coro, err in steps:
             self._lcd.fill_rect((0, 72), (160, 24), ST7735.BLACK)
@@ -62,9 +66,9 @@ class Main(Singleton):
                 raise OSError(err)
             await asyncio.sleep(1)
 
-        self._lcd.fill(ST7735.BLACK)
-
+        self._display_task.layout()
         bg_tasks = (
+            asyncio.create_task(self._display_task.execute()),
             asyncio.create_task(self._schedule_task.execute()),
             asyncio.create_task(self._subcribe_task.execute()),
             asyncio.create_task(self._sync_task.execute()),

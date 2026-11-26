@@ -9,9 +9,8 @@ from lib.singleton import Singleton
 
 
 class WiFi(Singleton):
-    def __init__(self, mode: int = WLAN.IF_STA) -> None:
-        device_name = Config().device.get("name", "")
-        hostname(device_name)
+    def __init__(self, name: str, mode: int = WLAN.IF_STA) -> None:
+        hostname(name)
 
         self._wlan = WLAN(mode)
         self._config = Config().wifi
@@ -22,14 +21,16 @@ class WiFi(Singleton):
 
     async def connect(
         self,
+        ssid: str,
+        password: str,
         timeout: int = 20,
         retries: int = 5,
     ) -> bool:
         while retries > 0 and not self._wlan.isconnected():
             self.disconnect()
             self._wlan.active(True)
-            self._wlan.connect(self._config.get("ssid"), self._config.get("password"))
-            self._logger.info(f"Connecting to {self._config.get('ssid')}...")
+            self._wlan.connect(ssid, password)
+            self._logger.info(f"Connecting to {ssid}...")
 
             start = ticks_ms()
             while not self._wlan.isconnected():

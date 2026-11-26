@@ -14,7 +14,7 @@ class Logger:
         msg_part = f"{self.COLOR_INFO}{msg}{self.COLOR_RESET}"
         print(f"{span_part} {msg_part}")
 
-    def warn(self, msg: str) -> None:
+    def warning(self, msg: str) -> None:
         span_part = f"{self.COLOR_SPAN}[{self.__span}]{self.COLOR_RESET}"
         msg_part = f"{self.COLOR_WARN}{msg}{self.COLOR_RESET}"
         print(f"{span_part} {msg_part}")

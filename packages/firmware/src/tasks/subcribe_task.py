@@ -4,6 +4,7 @@ from lib.api import Api
 from lib.logger import Logger
 from lib.picozero import pico_led
 from lib.singleton import Singleton
+from services.sync_schedule import SyncSchedule
 
 
 class SubcribeTask(Singleton):
@@ -18,12 +19,22 @@ class SubcribeTask(Singleton):
 
     async def _on_message(self, msg: str) -> None:
         try:
-            payload: dict = json.loads(msg)
+            command: dict = json.loads(msg)
             self._logger.info(f"Received: {msg}")
 
-            if payload.get("action") == "led":
-                value = int(payload.get("payload", "0"))
+            action = command.get("action")
+
+            if action == "led":
+                payload = command.get("payload", "0")
+                value = int(payload)
                 pico_led.value = value
+                self._logger.info(f"Led: {'ON' if value else 'OFF'}")
+
+            if action == "sync_schedule":
+                if await SyncSchedule().execute():
+                    self._logger.info("Schedule synced!")
+                else:
+                    self._logger.error("Schedule sync failed!")
 
         except Exception as e:
             self._logger.error(f"Error handling message: {e}")

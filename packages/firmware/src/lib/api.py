@@ -1,9 +1,10 @@
 try:
     from collections.abc import Awaitable, Callable
-except:
+except Exception:
     pass
 
 import asyncio
+import gc
 import json
 
 from lib.config import Config
@@ -15,21 +16,26 @@ class Api(Singleton):
     def __init__(self) -> None:
         super().__init__()
         self._logger = Logger("API")
-
         config = Config().api
-        self._base_url = config.get("url")
-        self._api_key = config.get("token")
+        self._base_url = config.get("url", "")
+        self._api_key = config.get("token", "")
 
     async def request(self, path: str, method: str, data: dict | None = None) -> dict:
+        gc.collect()
         body = json.dumps(data) if data is not None else None
         reader, writer = await self._open_stream(path, method, body)
-
         try:
             raw = await reader.read()
-            return json.loads(raw.decode("utf-8")) if raw else {}
+            res = json.loads(raw.decode("utf-8")) if raw else {}
+            del raw
+            return res
         finally:
             writer.close()
-            await writer.wait_closed()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+            gc.collect()
 
     async def get(self, path: str, query: dict | None = None) -> dict:
         if query:
@@ -41,7 +47,7 @@ class Api(Singleton):
         return await self.request(path, "POST", body)
 
     async def subcribe(
-        self, path: str, on_data: "Callable[[str],Awaitable[None]]", timeout: int = 10
+        self, path: str, on_data: "Callable[[str], Awaitable[None]]", timeout: int = 30
     ) -> None:
         headers = {
             "Accept": "text/event-stream",
@@ -50,37 +56,48 @@ class Api(Singleton):
         }
 
         while True:
-            writer = None
+            gc.collect()
+            writer, reader = None, None
 
             try:
                 self._logger.info(f"Subscribing: {path}")
                 reader, writer = await self._open_stream(
                     path, "GET", extra_headers=headers
                 )
+
                 while True:
                     line = await asyncio.wait_for(reader.readline(), timeout)
                     if not line:
                         break
+
                     decoded = line.decode("utf-8").strip()
                     if decoded.startswith("data:"):
                         payload = decoded[5:].strip()
                         await on_data(payload)
+                        del payload
 
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self._logger.error(f"SSE disconnected: {e}. Retrying in 3s...")
-                await asyncio.sleep(3)
             finally:
                 if writer:
-                    writer.close()
-                    await writer.wait_closed()
+                    try:
+                        writer.close()
+                        await writer.wait_closed()
+                    except Exception:
+                        pass
+
+                del reader
+                del writer
+                gc.collect()
+
+            await asyncio.sleep(3)
 
     def _parse_url(self, path: str) -> tuple[str, int, str, bool]:
         url = f"{self._base_url}/{path.lstrip('/')}"
         proto, _, rest = url.partition("://")
         is_ssl = proto.lower() == "https"
-
         host_port, _, req_path = rest.partition("/")
         req_path = "/" + req_path
 
@@ -101,6 +118,7 @@ class Api(Singleton):
         extra_headers: dict | None = None,
     ):
         host, port, req_path, is_ssl = self._parse_url(path)
+
         reader, writer = await asyncio.open_connection(
             host, port, ssl=is_ssl if is_ssl else None
         )
@@ -111,6 +129,7 @@ class Api(Singleton):
             "Authorization": f"Bearer {self._api_key}",
             "Connection": "close",
         }
+
         if extra_headers:
             headers.update(extra_headers)
 
@@ -121,7 +140,7 @@ class Api(Singleton):
         else:
             body_bytes = b""
 
-        req_lines = [f"{method} {req_path} HTTP/1.0"]
+        req_lines = [f"{method} {req_path} HTTP/1.1"]
         for k, v in headers.items():
             req_lines.append(f"{k}: {v}")
         req_header = "\r\n".join(req_lines) + "\r\n\r\n"

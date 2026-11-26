@@ -1,8 +1,23 @@
 from micropython import const
 
-# Button / Switch
-MODE_SWITCH = const(21)
+# Button / Switch / Buzzer
+MODE_SWITCH = const(15)
+BUTTON = const(21)
+BUZZER = const(20)
 
+# Sensors
+SENSOR_DROP = const(26)
+SENSOR_CHECK = const(27)
+
+# Servo
+SERVO00 = const(0)
+SERVO01 = const(1)
+SERVO10 = const(2)
+SERVO11 = const(3)
+
+# Steppers
+STEPPER_DRAWER = (const(7), const(6), const(5), const(4))
+STEPPER_DISCARD = (const(19), const(18), const(17), const(16))
 
 # LCD
 LCD_SCK = const(10)
