@@ -1,4 +1,5 @@
 import asyncio
+import gc
 
 from lib.logger import Logger
 from lib.schedule import Schedule
@@ -60,6 +61,8 @@ class ScheduleTask(Singleton):
 
             except Exception as e:
                 self._logger.error(f"Error in ScheduleTask loop: {e}")
+            finally:
+                gc.collect()
 
             now_sec = self._utils.get_current_time()[5]
             sleep_time = 60 - now_sec

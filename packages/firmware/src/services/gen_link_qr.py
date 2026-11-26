@@ -13,18 +13,25 @@ class GenLinkQr(Singleton):
         self._qr = QRCode(error_correction=ERROR_CORRECT_L, border=1)
 
     async def execute(self) -> list[list[bool]] | None:
+        gc.collect()
         resp = await self._api.get("/api/devices/link/generate")
         if not resp or not isinstance(resp.get("data"), str):
+            del resp
+            gc.collect()
             return None
 
-        data = str(resp.get("data", ""))
+        data = resp["data"]
         if not data:
+            del data, resp
+            gc.collect()
             return None
 
         self._qr.clear()
         self._qr.add_data(data)
-
         matrix = self._qr.get_matrix()
+
+        self._qr.clear()
+        del data, resp
         gc.collect()
 
         return matrix  # pyright: ignore[reportReturnType]

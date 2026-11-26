@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import json
 
 from lib.api import Api
@@ -30,8 +31,13 @@ class SubcribeTask(Singleton):
         await self._api.subcribe("/api/devices/subscribe", self._on_message, timeout=15)
 
     async def _on_message(self, msg: str) -> None:
+        command: dict | None = None
+
         try:
-            command: dict = json.loads(msg)
+            command = json.loads(msg)
+            if command is None:
+                return
+
             self._logger.info(f"Received: {msg}")
 
             action = command.get("action")
@@ -108,3 +114,7 @@ class SubcribeTask(Singleton):
 
         except Exception as e:
             self._logger.error(f"Error handling message: {e}")
+        finally:
+            if command is not None:
+                del command
+            gc.collect()

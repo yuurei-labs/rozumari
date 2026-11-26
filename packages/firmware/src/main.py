@@ -46,6 +46,7 @@ class Main(Singleton):
         self._sync_task = SyncTask()
 
     async def _normal_flow(self) -> None:
+        gc.collect()
         self._draw_header()
 
         ssid = self._config.wifi.get("ssid", "")
@@ -113,6 +114,8 @@ class Main(Singleton):
         self._is_config_mode = is_cfg
         if self._task:
             self._task.cancel()
+            await asyncio.sleep_ms(0)
+        gc.collect()
 
         if is_cfg:
             self._logger.info("Switched to CONFIG MODE")

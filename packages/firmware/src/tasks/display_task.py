@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import time
 
 from lib.config import Config
@@ -47,12 +48,18 @@ class DisplayTask(Singleton):
         self._render_schedule(force=True)
 
     async def execute(self) -> None:
+        last_gc_ms = time.ticks_ms()
+
         while True:
             self._render_time()
             self._render_schedule()
 
             if self._button.check_long_press(5000):
                 await self._on_long_press_5s()
+
+            if time.ticks_diff(time.ticks_ms(), last_gc_ms) >= 60_000:
+                gc.collect()
+                last_gc_ms = time.ticks_ms()
 
             await asyncio.sleep(1)
 
@@ -66,9 +73,12 @@ class DisplayTask(Singleton):
             self._lcd.text((0, 60), _t("lcd_qr_failed"), ST7735.RED, center=True)
             await asyncio.sleep(2)
             self.layout()
+            gc.collect()
             return
 
         self._draw_qr_matrix(matrix)
+        del matrix
+        gc.collect()
 
         self._button.clear_pressed()
         start_ms = time.ticks_ms()
