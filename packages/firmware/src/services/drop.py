@@ -40,6 +40,12 @@ DROP_IRQ_TRIGGER = Pin.IRQ_FALLING
 
 class Drop(Singleton):
     def __init__(self) -> None:
+        """Initialize the medicine dispensing system.
+
+        Sets up the servos, stepper motors, sensors, buzzer, button, configuration,
+        and notification services. Registers the pill-drop sensor interrupt.
+        Skips reinitialization when the singleton instance is already initialized.
+        """
         super().__init__()
         if hasattr(self, "_servos"):
             return
@@ -74,25 +80,28 @@ class Drop(Singleton):
 
         self._sensor_drop.irq(trigger=DROP_IRQ_TRIGGER, handler=self._on_pill_drop)
 
-    def _on_pill_drop(self, pin: Pin) -> None:
-        now = time.ticks_ms()
-        if time.ticks_diff(now, self._last_drop_ms) < 200:
-            return
-        if pin.value() == 0:
-            self._last_drop_ms = now
-            self._drop_count += 1
-
-    def _on_pill_check(self, pin: Pin) -> None:
-        now = time.ticks_ms()
-        if time.ticks_diff(now, self._last_check_ms) < 200:
-            return
-        if pin.value() == 0:
-            self._last_check_ms = now
-            self._check_detected = True
-
     async def execute(
         self, items: "list[Item] | list[dict]", schedule_id: str | None = None
     ) -> bool:
+        """Execute a medicine dispensing cycle.
+
+        Dispenses the requested quantities from their assigned slots, records
+        optional and required dispensing failures, and aborts if any required
+        item fails.
+
+        After successful dispensing, opens the drawer, waits for the user to
+        take the medicine, and checks for leftover pills. Sends notifications
+        about the dispensing result.
+
+        Args:
+            items: List of medicine items containing slot, medicine name,
+                quantity, and required status.
+            schedule_id: Optional identifier of the associated schedule.
+
+        Returns:
+            True if the dispensing cycle completes without required failures
+            or leftover pills; otherwise, False.
+        """
         self.optional_failures.clear()
         self.required_failures.clear()
 
@@ -131,14 +140,16 @@ class Drop(Singleton):
 
             self._logger.error(msg)
             await self._notify.send(
-                "error",
-                _t("notify_schedule_failed" if schedule_id else "notify_drop_failed"),
-                msg,
-                {
+                level="error",
+                title=_t(
+                    "notify_schedule_failed" if schedule_id else "notify_drop_failed"
+                ),
+                body=msg,
+                payload={
                     "required_failures": self.required_failures,
                     "optional_failures": self.optional_failures,
                 },
-                schedule_id,
+                schedule_id=schedule_id,
             )
             return False
 
@@ -177,11 +188,11 @@ class Drop(Singleton):
                     self._logger.error(msg)
                     self._stepper_discard.rotate(1 / 16, direction="ccw")
                     await self._notify.send(
-                        "error",
-                        _t("notify_medicine_not_taken"),
-                        msg,
-                        {"optional_failures": self.optional_failures},
-                        schedule_id,
+                        level="error",
+                        title=_t("notify_medicine_not_taken"),
+                        body=msg,
+                        payload={"optional_failures": self.optional_failures},
+                        schedule_id=schedule_id,
                     )
                     return False
 
@@ -202,31 +213,73 @@ class Drop(Singleton):
 
             self._logger.warning(msg)
             await self._notify.send(
-                "warning",
-                _t("notify_schedule_warning" if schedule_id else "notify_drop_warning"),
-                msg,
-                {"optional_failures": self.optional_failures},
-                schedule_id,
+                level="warning",
+                title=_t(
+                    "notify_schedule_warning" if schedule_id else "notify_drop_warning"
+                ),
+                body=msg,
+                payload={"optional_failures": self.optional_failures},
+                schedule_id=schedule_id,
             )
         else:
             msg = _t("notify_dispense_success")
             self._logger.info(msg)
             await self._notify.send(
-                "info",
-                _t(
+                level="info",
+                title=_t(
                     "notify_schedule_completed"
                     if schedule_id
                     else "notify_drop_completed"
                 ),
-                msg,
-                {},
-                schedule_id,
+                body=msg,
+                schedule_id=schedule_id,
             )
 
         self._logger.info("Medicine schedule cycle completed successfully!")
         return True
 
+    def _on_pill_drop(self, pin: Pin) -> None:
+        """Handle pill-drop sensor interrupts.
+
+        Applies a 200 ms debounce interval and increments the drop counter
+        when the sensor detects a falling-edge signal.
+
+        Args:
+            pin: The GPIO pin that triggered the interrupt.
+        """
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_drop_ms) < 200:
+            return
+        if pin.value() == 0:
+            self._last_drop_ms = now
+            self._drop_count += 1
+
+    def _on_pill_check(self, pin: Pin) -> None:
+        """Handle leftover-pill sensor interrupts.
+
+        Applies a 200 ms debounce interval and marks the sensor as triggered
+        when a falling-edge signal is detected.
+
+        Args:
+            pin: The GPIO pin that triggered the interrupt.
+        """
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_check_ms) < 200:
+            return
+        if pin.value() == 0:
+            self._last_check_ms = now
+            self._check_detected = True
+
     async def _wait_for_user_or_timeout(self, timeout_s: int) -> None:
+        """Wait for the user to acknowledge taking the medicine.
+
+        Monitors the button until it is pressed or the specified timeout
+        expires. Plays a confirmation beep when the button is pressed and
+        periodic reminder beeps while waiting.
+
+        Args:
+            timeout_s: Maximum waiting time in seconds.
+        """
         self._button.clear_pressed()
         start_ms = time.ticks_ms()
         timeout_ms = timeout_s * 1000
@@ -252,6 +305,21 @@ class Drop(Singleton):
     async def _dispense_slot(
         self, slot: str, quantity: int, timeout_s: int = 5
     ) -> bool:
+        """Dispense a specified quantity of pills from a slot.
+
+        Activates the slot's servo and monitors the pill-drop counter until
+        the requested quantity is reached or the timeout expires. Stops the
+        servo between detected drops and always turns it off afterward.
+
+        Args:
+            slot: Identifier of the dispensing slot.
+            quantity: Number of pills to dispense.
+            timeout_s: Maximum time allowed for dispensing, in seconds.
+
+        Returns:
+            True if the requested quantity is dispensed successfully;
+            otherwise, False.
+        """
         servo = self._servos.get(slot)
         if not servo:
             self._logger.error(f"Invalid slot: {slot}")

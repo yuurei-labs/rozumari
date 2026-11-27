@@ -10,22 +10,40 @@ from lib.singleton import Singleton
 
 class WiFi(Singleton):
     def __init__(self, name: str, mode: int = WLAN.IF_STA) -> None:
+        """Initialize the Wi-Fi manager.
+
+        Args:
+            name: Device hostname.
+            mode: WLAN operating mode. Defaults to station mode.
+        """
         hostname(name)
 
         self._wlan = WLAN(mode)
         self._config = Config().wifi
         self._logger = Logger("WiFi")
 
-    def is_connected(self) -> bool:
-        return self._wlan.isconnected()
-
     async def connect(
         self,
+        *,
         ssid: str,
         password: str,
         timeout: int = 20,
         retries: int = 5,
     ) -> bool:
+        """Connect to a Wi-Fi network with timeout and retry handling.
+
+        Attempts to establish a connection until successful or the retry limit
+        is reached.
+
+        Args:
+            ssid: Wi-Fi network name.
+            password: Wi-Fi network password.
+            timeout: Maximum connection time per attempt in seconds.
+            retries: Maximum number of connection attempts.
+
+        Returns:
+            True if the connection succeeds, otherwise False.
+        """
         while retries > 0 and not self._wlan.isconnected():
             self.disconnect()
             self._wlan.active(True)
@@ -49,9 +67,19 @@ class WiFi(Singleton):
         return False
 
     def disconnect(self) -> None:
+        """Disconnect from the current Wi-Fi network and deactivate the interface."""
         if self._wlan.isconnected():
             self._wlan.disconnect()
             sleep_ms(500)
         if self._wlan.active():
             self._wlan.active(False)
             sleep_ms(500)
+
+    @property
+    def is_connected(self) -> bool:
+        """Check whether the Wi-Fi interface is connected.
+
+        Returns:
+            True if connected to a Wi-Fi network, otherwise False.
+        """
+        return self._wlan.isconnected()

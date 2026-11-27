@@ -62,7 +62,7 @@ export class DeviceStreamUseCase extends Context.Service<
 
         const keepAliveStream = Stream.repeat(
           Stream.succeed(':keep-alive\n\n'),
-          Schedule.spaced('10 seconds')
+          Schedule.spaced('20 seconds')
         )
 
         const dataStream = Stream.mapEffect(

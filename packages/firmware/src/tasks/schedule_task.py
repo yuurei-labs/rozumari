@@ -10,6 +10,7 @@ from services.drop import Drop
 
 class ScheduleTask(Singleton):
     def __init__(self) -> None:
+        """Initialize the schedule processor and load stored schedules."""
         super().__init__()
         self._logger = Logger("ScheduleTask")
         self._drop = Drop()
@@ -18,6 +19,15 @@ class ScheduleTask(Singleton):
         self._schedule.load()
 
     async def execute(self) -> None:
+        """Run the schedule processing loop.
+
+        Checks pending schedules against the current date and time, executes
+        matching schedules, and updates their status based on execution results.
+        Optional and required item failures are logged separately.
+
+        The task synchronizes its execution interval with the beginning of
+        each minute and performs garbage collection after each processing cycle.
+        """
         self._logger.info("Schedule processor task started.")
 
         while True:

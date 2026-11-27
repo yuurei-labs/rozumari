@@ -15,12 +15,25 @@ from lib.singleton import Singleton
 
 class BleService(Singleton):
     def __init__(self, handle_send: "Callable[[str], None]") -> None:
+        """Initialize the BLE service.
+
+        Args:
+            handle_send: Callback used to send messages to the BLE client.
+        """
         super().__init__()
         self._handle_send = handle_send
 
         self._config = Config()
 
     def execute(self, msg: str) -> None:
+        """Execute a command received from a BLE client.
+
+        Processes commands for Wi-Fi credentials, general settings, and timeout
+        configuration. Sends the corresponding response or error message.
+
+        Args:
+            msg: Command string received from the BLE client.
+        """
         try:
             if msg == "ping":
                 self._handle_send("pong")
@@ -58,10 +71,29 @@ class BleService(Singleton):
             self._handle_send(_t("ble_config_error", error=str(e)))
 
     def _send_notify(self, msg_type: str, content: str) -> None:
+        """Send a structured notification to the BLE client.
+
+        Args:
+            msg_type: Notification type, such as success or error.
+            content: Notification message content.
+        """
         payload = json.dumps({"type": msg_type, "content": content})
         self._handle_send(payload)
 
     def _test_wifi(self, ssid: str, password: str, timeout_s: int = 10) -> bool:
+        """Test connectivity to a Wi-Fi network.
+
+        Attempts to connect using the provided credentials within the specified
+        timeout. Disconnects if the connection cannot be established.
+
+        Args:
+            ssid: Wi-Fi network name.
+            password: Wi-Fi network password.
+            timeout_s: Maximum connection time in seconds.
+
+        Returns:
+            True if the connection succeeds, otherwise False.
+        """
         wlan = network.WLAN(network.STA_IF)
         wlan.active(True)
 

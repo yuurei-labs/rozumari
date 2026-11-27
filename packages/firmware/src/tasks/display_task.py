@@ -14,6 +14,7 @@ from services.gen_link_qr import GenLinkQr
 
 class DisplayTask(Singleton):
     def __init__(self) -> None:
+        """Initialize the display task and its dependencies."""
         super().__init__()
 
         self._lcd = ST7735()
@@ -27,19 +28,27 @@ class DisplayTask(Singleton):
         self._gen_link_qr = GenLinkQr()
 
     def layout(self) -> None:
+        """Initialize the LCD layout and render the initial screen.
+
+        Resets cached display state and renders the current time and schedule.
+        """
         self._lcd.fill(ST7735.BLACK)
 
         name = self._config.get("name", self._config.get("model"))
         position = self._config.get("position")
 
         self._lcd.text(
-            (4, 4), f"{name}{f' - {position}' if position else ''}", ST7735.WHITE
+            pos=(4, 4),
+            text=f"{name}{f' - {position}' if position else ''}",
+            color=ST7735.WHITE,
         )
         self._render_time(force=True)
-        self._lcd.hline((4, 28), 152, ST7735.BLUE)
+        self._lcd.hline(pos=(4, 28), length=152, color=ST7735.BLUE)
 
-        self._lcd.text((4, 34), _t("lcd_time_items_status"), ST7735.WHITE)
-        self._lcd.hline((4, 44), 152, ST7735.WHITE)
+        self._lcd.text(
+            pos=(4, 34), text=_t("lcd_time_items_status"), color=ST7735.WHITE
+        )
+        self._lcd.hline(pos=(4, 44), length=152, color=ST7735.WHITE)
 
         self._last_date_hm = ""
         self._last_date_ss = ""
@@ -48,6 +57,11 @@ class DisplayTask(Singleton):
         self._render_schedule(force=True)
 
     async def execute(self) -> None:
+        """Run the main display loop.
+
+        Periodically updates the displayed time and schedules, checks for
+        long button presses, and performs garbage collection every 60 seconds.
+        """
         last_gc_ms = time.ticks_ms()
 
         while True:
@@ -64,13 +78,22 @@ class DisplayTask(Singleton):
             await asyncio.sleep(1)
 
     async def _on_long_press_5s(self) -> None:
+        """Handle a button long press by displaying a pairing QR code.
+
+        Generates and displays a QR code, then waits for a button press or
+        a 60-second timeout before restoring the default display layout.
+        """
         self._lcd.fill(ST7735.BLACK)
-        self._lcd.text((0, 60), _t("lcd_generating_qr"), ST7735.CYAN, center=True)
+        self._lcd.text(
+            pos=(0, 60), text=_t("lcd_generating_qr"), color=ST7735.CYAN, center=True
+        )
 
         matrix = await self._gen_link_qr.execute()
         if not matrix:
             self._lcd.fill(ST7735.BLACK)
-            self._lcd.text((0, 60), _t("lcd_qr_failed"), ST7735.RED, center=True)
+            self._lcd.text(
+                pos=(0, 60), text=_t("lcd_qr_failed"), color=ST7735.RED, center=True
+            )
             await asyncio.sleep(2)
             self.layout()
             gc.collect()
@@ -92,6 +115,14 @@ class DisplayTask(Singleton):
         self.layout()
 
     def _render_time(self, force: bool = False) -> None:
+        """Render the current date and time on the LCD.
+
+        Updates only the portions of the display that have changed unless
+        a forced refresh is requested.
+
+        Args:
+            force: Whether to force a complete time display refresh.
+        """
         current = self._utils.get_current_time()
         date_hm = f"{current[2]:02d}-{current[1]:02d}-{current[0]:04d} {current[3]:02d}:{current[4]:02d}"
         date_ss = f"{current[5]:02d}"
@@ -101,16 +132,24 @@ class DisplayTask(Singleton):
         if force or date_hm != self._last_date_hm:
             self._last_date_hm = date_hm
 
-            self._lcd.fill_rect((x_static, 16), (128, 8), ST7735.BLACK)
-            self._lcd.text((x_static, 16), f"{date_hm}:", ST7735.CYAN)
+            self._lcd.fill_rect(pos=(x_static, 16), size=(128, 8), color=ST7735.BLACK)
+            self._lcd.text(pos=(x_static, 16), text=f"{date_hm}:", color=ST7735.CYAN)
 
         if force or date_ss != self._last_sec:
             self._last_sec = date_ss
 
-            self._lcd.fill_rect((x_seconds, 16), (16, 8), ST7735.BLACK)
-            self._lcd.text((x_seconds, 16), date_ss, ST7735.CYAN)
+            self._lcd.fill_rect(pos=(x_seconds, 16), size=(16, 8), color=ST7735.BLACK)
+            self._lcd.text(pos=(x_seconds, 16), text=date_ss, color=ST7735.CYAN)
 
     def _render_schedule(self, force: bool = False) -> None:
+        """Render the current schedule list on the LCD.
+
+        Displays schedule times, item counts, and status indicators. Skips
+        rendering if the schedule data has not changed unless forced.
+
+        Args:
+            force: Whether to force a schedule display refresh.
+        """
         schedules = self._schedule.schedules
         current_snapshot = [
             (s.get("time"), len(s.get("items", [])), s.get("status")) for s in schedules
@@ -120,9 +159,14 @@ class DisplayTask(Singleton):
             return
 
         self._last_schedule_snapshot = current_snapshot
-        self._lcd.fill_rect((0, 48), (160, 80), ST7735.BLACK)
+        self._lcd.fill_rect(pos=(0, 48), size=(160, 80), color=ST7735.BLACK)
         if not schedules:
-            self._lcd.text((0, 76), _t("lcd_no_schedules"), ST7735.WHITE, center=True)
+            self._lcd.text(
+                pos=(0, 76),
+                text=_t("lcd_no_schedules"),
+                color=ST7735.WHITE,
+                center=True,
+            )
             return
 
         y = 48
@@ -148,11 +192,19 @@ class DisplayTask(Singleton):
                 color = ST7735.WHITE
 
             info_str = f"{hh_mm:<5} | {items_str:<5} | "
-            self._lcd.text((4, y), info_str, ST7735.WHITE)
-            self._lcd.text((100, y), _t(f"status_{status}"), color)
+            self._lcd.text(pos=(4, y), text=info_str, color=ST7735.WHITE)
+            self._lcd.text(pos=(100, y), text=_t(f"status_{status}"), color=color)
             y += 12
 
     def _draw_qr_matrix(self, matrix: list[list[bool]]) -> None:
+        """Render a QR code matrix on the LCD.
+
+        Scales and centers the QR code within the display boundaries and
+        draws its modules using RGB565 pixel data.
+
+        Args:
+            matrix: Two-dimensional boolean matrix representing the QR code.
+        """
         self._lcd.fill(ST7735.BLACK)
         size = len(matrix)
 
@@ -168,7 +220,7 @@ class DisplayTask(Singleton):
         bg_y = max(0, offset_y - pad)
         bg_w = min(160 - bg_x, qr_pixel_size + pad * 2)
         bg_h = min(128 - bg_y, qr_pixel_size + pad * 2)
-        self._lcd.fill_rect((bg_x, bg_y), (bg_w, bg_h), ST7735.WHITE)
+        self._lcd.fill_rect(pos=(bg_x, bg_y), size=(bg_w, bg_h), color=ST7735.WHITE)
 
         black_hi = (ST7735.BLACK >> 8) & 0xFF
         black_lo = ST7735.BLACK & 0xFF
@@ -193,4 +245,4 @@ class DisplayTask(Singleton):
                 row_buf[start : start + line_bytes] = row_buf[0:line_bytes]
 
             y = offset_y + r * scale
-            self._lcd.blit(offset_x, y, qr_pixel_size, scale, row_buf)
+            self._lcd.blit(x=offset_x, y=y, w=qr_pixel_size, h=scale, data=row_buf)

@@ -9,6 +9,7 @@ from services.sync_schedule import SyncSchedule
 
 class SyncTask(Singleton):
     def __init__(self) -> None:
+        """Initialize the daily synchronization task and its dependencies."""
         super().__init__()
         self._logger = Logger("SyncTask")
         self._config = Config()
@@ -18,7 +19,18 @@ class SyncTask(Singleton):
         self._last_sync_date: str = ""
 
     async def execute(self) -> None:
-        self._logger.info("Daily sync task started (Checking every 30 minutes).")
+        """Run the daily schedule synchronization loop.
+
+        Checks the configured synchronization time and executes schedule
+        synchronization once per day when the target time is reached.
+
+        Records the date of successful synchronization to prevent duplicate
+        execution. Retries failed synchronization during subsequent check
+        cycles and logs any unexpected errors.
+
+        Sleeps until the next 30-minute check interval between executions.
+        """
+        self._logger.info("Daily sync task started.")
 
         while True:
             try:

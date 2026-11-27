@@ -21,16 +21,43 @@ except Exception:
 
 class SubcribeTask(Singleton):
     def __init__(self) -> None:
+        """Initialize the subscription task and its API and notification services."""
         super().__init__()
 
         self._api = Api()
         self._notify = Notify()
         self._logger = Logger("Subcribe")
 
-    async def execute(self):
-        await self._api.subcribe("/api/devices/subscribe", self._on_message, timeout=15)
+    async def execute(self) -> None:
+        """Start listening for device subscription messages.
+
+        Subscribes to the device endpoint and registers the message handler.
+        Automatically reconnects after connection loss using the configured
+        reconnection interval, retry delay, and timeout.
+        """
+        self._logger.info("Subcribe processor task started.")
+        await self._api.subcribe(
+            "/api/devices/subscribe",
+            self._on_message,
+            reconnect_after=240,
+            retry_delay=3,
+            timeout=30,
+        )
 
     async def _on_message(self, msg: str) -> None:
+        """Process an incoming subscription message.
+
+        Parses the JSON message and dispatches the requested action. Supported
+        actions include controlling the LED, synchronizing device information,
+        synchronizing schedules, and executing drop operations.
+
+        Emits notifications to report operation progress and results. Invalid
+        messages or processing errors are caught, and garbage collection is
+        performed after message handling.
+
+        Args:
+            msg: The incoming message encoded as a JSON string.
+        """
         command: dict | None = None
 
         try:

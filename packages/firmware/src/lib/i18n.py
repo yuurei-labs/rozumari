@@ -93,6 +93,16 @@ _TRANSLATIONS = {
 
 
 def translate(key: str, **values) -> str:
+    """Translate a message using the configured language.
+
+    Args:
+        key: Translation key.
+        **values: Optional values used to format the translated message.
+
+    Returns:
+        Translated and formatted message. Falls back to English if the
+        configured language or translation key is unavailable.
+    """
     language = Config().general.get("language", "en")
     translations = _TRANSLATIONS.get(language, _TRANSLATIONS["en"])
     message = translations.get(key, _TRANSLATIONS["en"].get(key, key))

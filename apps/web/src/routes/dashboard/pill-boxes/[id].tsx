@@ -39,7 +39,7 @@ export default function DevicesShowPage({ params }: Route.ComponentProps) {
       {
         enabled: !isLoading && error === null,
         autoReconnect: '3 seconds',
-        keepAlive: { timeout: '15 seconds' },
+        keepAlive: { timeout: '30 seconds' },
         onData: ({ action, payload }) => {
           if (action === 'message' && typeof payload === 'object') {
             const p = payload as { type: 'success' | 'error'; content: string }

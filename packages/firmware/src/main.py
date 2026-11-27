@@ -22,6 +22,11 @@ from tasks.sync_task import SyncTask
 
 class Main(Singleton):
     def __init__(self) -> None:
+        """Initialize the main application and its hardware components.
+
+        Load the device configuration, initialize services and peripherals,
+        register the mode-switch interrupt, and create background task handlers.
+        """
         super().__init__()
         self._config = Config()
         self._config.load()
@@ -46,6 +51,15 @@ class Main(Singleton):
         self._sync_task = SyncTask()
 
     async def _normal_flow(self) -> None:
+        """Run the application in normal operating mode.
+
+        Collect garbage, initialize the display, connect to Wi-Fi, synchronize
+        the system time and device information, then start the background tasks.
+
+        Raises:
+            OSError: If Wi-Fi connection, time synchronization, or information
+                synchronization fails.
+        """
         gc.collect()
         self._draw_header()
 
@@ -55,15 +69,17 @@ class Main(Singleton):
         steps = (
             (
                 _t("lcd_connecting_wifi", ssid=ssid),
-                self._wifi.connect(ssid, password),
+                self._wifi.connect(ssid=ssid, password=password),
                 "WiFi connect failed",
             ),
             (_t("lcd_syncing_time"), self._utils.sync_time(), "Time sync failed"),
             (_t("lcd_syncing_info"), SyncInfo().execute(), "Info sync failed"),
         )
         for msg, coro, err in steps:
-            self._lcd.fill_rect((0, 72), (160, 24), ST7735.BLACK)
-            self._lcd.text((0, 72), msg, ST7735.WHITE, wrap=True, center=True)
+            self._lcd.fill_rect(pos=(0, 72), size=(160, 24), color=ST7735.BLACK)
+            self._lcd.text(
+                pos=(0, 72), text=msg, color=ST7735.WHITE, wrap=True, center=True
+            )
             if not await coro:
                 raise OSError(err)
             await asyncio.sleep(1)
@@ -83,13 +99,28 @@ class Main(Singleton):
             gc.collect()
 
     async def _config_flow(self) -> None:
+        """Run the application in configuration mode.
+
+        Display the configuration-mode instructions and the device BLE MAC
+        address on the LCD.
+        """
         self._draw_header()
-        self._lcd.text((0, 80), _t("lcd_advertise_at"), ST7735.WHITE, center=True)
-        self._lcd.text((0, 96), self._ble.get_mac(), ST7735.WHITE, center=True)
+        self._lcd.text(
+            pos=(0, 80), text=_t("lcd_advertise_at"), color=ST7735.WHITE, center=True
+        )
+        self._lcd.text(
+            pos=(0, 96), text=self._ble.get_mac(), color=ST7735.WHITE, center=True
+        )
 
     async def execute(self) -> None:
+        """Initialize the display and run the main application loop.
+
+        Synchronize the operating mode whenever the mode-switch state changes
+        and monitor the active mode task for completion.
+        """
         self._lcd.init()
         self._lcd.rotation(1)
+
         while True:
             if self._mode_changed:
                 self._mode_changed = False
@@ -99,6 +130,11 @@ class Main(Singleton):
             await asyncio.sleep_ms(50)
 
     def cleanup(self) -> None:
+        """Release application resources and stop active services.
+
+        Cancel the active mode task, disconnect Wi-Fi, stop BLE advertising,
+        deinitialize the LCD, and log the cleanup completion.
+        """
         if self._task:
             self._task.cancel()
         self._wifi.disconnect()
@@ -107,6 +143,11 @@ class Main(Singleton):
         self._logger.info("Cleanup completed.")
 
     async def _sync_mode(self) -> None:
+        """Synchronize the application mode with the physical mode switch.
+
+        Cancel the previous mode task, collect garbage, and start the
+        corresponding configuration or normal operating flow.
+        """
         is_cfg = self._sw.value() == 0
         if is_cfg == self._is_config_mode:
             return
@@ -129,11 +170,26 @@ class Main(Singleton):
             self._task = asyncio.create_task(self._normal_flow())
 
     def _draw_header(self) -> None:
+        """Draw the application header on the LCD.
+
+        Clear the display and render the application name and a horizontal
+        separator line.
+        """
         self._lcd.fill(ST7735.BLACK)
-        self._lcd.text((0, 44), "Rozumari", ST7735.WHITE, 2, center=True)
-        self._lcd.hline((16, 64), 128, ST7735.BLUE)
+        self._lcd.text(
+            pos=(0, 44), text="Rozumari", color=ST7735.WHITE, size=2, center=True
+        )
+        self._lcd.hline(pos=(16, 64), length=128, color=ST7735.BLUE)
 
     def _sw_irq(self, _: Pin) -> None:
+        """Handle mode-switch state changes through a GPIO interrupt.
+
+        Apply a 150 ms debounce interval before marking the application mode
+        as changed.
+
+        Args:
+            _: The GPIO pin that triggered the interrupt.
+        """
         now = time.ticks_ms()
         if time.ticks_diff(now, self._last_trigger) > 150:
             self._last_trigger = now

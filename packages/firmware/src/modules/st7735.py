@@ -17,6 +17,14 @@ utils = Utils()
 
 class ST7735(Singleton):
     def __init__(self, size: tuple[int, int] = (128, 160)):
+        """Initialize the ST7735 display driver.
+
+        Configures the SPI interface, control pins, display dimensions, rotation,
+        color mode, and internal drawing buffers.
+
+        Args:
+            size: Initial display dimensions as (width, height), in pixels.
+        """
         self.spi = SPI(
             1,
             baudrate=20_000_000,
@@ -44,60 +52,49 @@ class ST7735(Singleton):
         self._buf = bytes(self._color_data) * 32
 
     def size(self) -> tuple[int, int]:
-        """
-        Get the current logical canvas size based on rotation and orientation.
+        """Get the current logical display dimensions.
 
         Returns:
-            Tuple of (width, height) in pixels.
+            Display dimensions as (width, height), in pixels.
         """
         return self._size
 
     def active(self, on: bool = True) -> None:
-        """
-        Turn display screen output ON or OFF.
+        """Turn display output on or off.
 
         Args:
-            on: Set `True` to enable screen output, `False` to turn off.
-
-        Returns:
-            None
+            on: True to enable display output, or False to disable it.
         """
         self._cmd(ST7735.DISPON if on else ST7735.DISPOFF)
 
     def invert(self, invert: bool = True):
-        """
-        Invert display colors.
+        """Enable or disable display color inversion.
 
         Args:
-            invert: Set `True` to enable color inversion, `False` for normal colors.
-
-        Returns:
-            None
+            invert: True to invert colors, or False to use normal colors.
         """
         self._cmd(ST7735.INVON if invert else ST7735.INVOFF)
 
     def rgb_mode(self, rgb: bool = True) -> None:
-        """
-        Configure pixel color order mode between RGB and BGR.
+        """Set the display pixel color order.
+
+        Updates the MADCTL register to select RGB or BGR color ordering.
 
         Args:
-            rgb: Set `True` for RGB color order, `False` for BGR.
-
-        Returns:
-            None
+            rgb: True to use RGB order, or False to use BGR order.
         """
         self._rgb = rgb
         self._set_MADCTL()
 
     def rotation(self, rotate: int) -> None:
-        """
-        Rotate display orientation and automatically swap logical canvas dimensions.
+        """Set the display orientation.
+
+        Updates the display rotation and swaps logical width and height when
+        changing between portrait and landscape orientations.
 
         Args:
-            rotate: Rotation index (0: 0°, 1: 90°, 2: 180°, 3: 270°).
-
-        Returns:
-            None
+            rotate: Rotation index: 0 for 0°, 1 for 90°, 2 for 180°,
+                or 3 for 270°.
         """
         if 0 <= rotate <= 3:
             root_change = self._rotate ^ rotate
@@ -108,15 +105,11 @@ class ST7735(Singleton):
             self._set_MADCTL()
 
     def pixel(self, pos: tuple[int, int], color: int) -> None:
-        """
-        Draw a single pixel at the specified coordinate.
+        """Draw a single pixel at the specified coordinate.
 
         Args:
-            pos: Pixel coordinate tuple (x, y).
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Pixel coordinate as (x, y).
+            color: Pixel color in 16-bit RGB565 format.
         """
         if 0 <= pos[0] < self._size[0] and 0 <= pos[1] < self._size[1]:
             self._set_window_point(pos)
@@ -124,6 +117,7 @@ class ST7735(Singleton):
 
     def text(
         self,
+        *,
         pos: tuple[int, int],
         text: str,
         color: int,
@@ -131,21 +125,20 @@ class ST7735(Singleton):
         wrap: bool = False,
         center: bool = False,
     ) -> None:
-        """Render string text onto display with custom fonts, scaling, and line wrapping options.
+        """Render text on the display using the configured font.
+
+        Supports horizontal centering, custom scaling, and optional line
+        wrapping when text reaches the display boundary.
 
         Args:
-            pos: Top-left start coordinate tuple (x, y).
-            text: String payload to render.
-            color: 16-bit RGB565 text color value.
-            font: Font dictionary mapping character glyph data.
-            size: Uniform scale factor integer or scale tuple (x_scale, y_scale).
-            wrap: Set `True` to wrap text to next line on reaching display border.
-            center: Set `True` to automatically center-align the text horizontally.
-
-        Returns:
-            None
+            pos: Starting coordinate as (x, y).
+            text: String to render.
+            color: Text color in 16-bit RGB565 format.
+            size: Uniform scaling factor or (horizontal, vertical) scaling.
+            wrap: Whether to continue rendering on the next line when the
+                text reaches the display boundary.
+            center: Whether to center the text horizontally on the display.
         """
-
         if isinstance(size, int):
             wh = (size, size)
         else:
@@ -166,7 +159,7 @@ class ST7735(Singleton):
             start_x = orig_x
 
         for char in text:
-            self.char((x, y), char, color, wh)
+            self.char(pos=(x, y), char=char, color=color, sizes=wh)
             x += width
 
             if x + width > self._size[0]:
@@ -178,23 +171,22 @@ class ST7735(Singleton):
 
     def char(
         self,
+        *,
         pos: tuple[int, int],
         char: str,
         color: int,
         sizes: tuple[int, int] = (1, 1),
     ) -> None:
-        """
-        Render a single scaled character glyph into memory buffer and output to screen.
+        """Render a single character using the configured font.
+
+        Creates a scaled pixel buffer for the character and draws it at
+        the specified display coordinate.
 
         Args:
-            pos: Top-left coordinate tuple (x, y).
-            char: Single character string to render.
-            color: 16-bit RGB565 color value.
-            font: Font dictionary mapping character glyph data.
-            sizes: Horizontal and vertical scaling factor tuple (width_scale, height_scale).
-
-        Returns:
-            None
+            pos: Top-left coordinate as (x, y).
+            char: Character to render.
+            color: Character color in 16-bit RGB565 format.
+            sizes: Horizontal and vertical scaling factors.
         """
         start_char = FONT["start"]
         end_char = FONT["end"]
@@ -230,43 +222,37 @@ class ST7735(Singleton):
             x1 = x0 + w - 1
             y1 = y0 + h - 1
 
-            self.image(x0, y0, x1, y1, buf)
+            self.image(x0=x0, y0=y0, x1=x1, y1=y1, data=buf)
 
-    def blit(self, x: int, y: int, w: int, h: int, data: bytearray) -> None:
-        """
-        Blit a raw byte array buffer directly to a rectangular screen region.
+    def blit(self, *, x: int, y: int, w: int, h: int, data: bytearray) -> None:
+        """Draw a raw pixel buffer within a rectangular display region.
 
         Args:
-            x: Left coordinate starting position.
-            y: Top coordinate starting position.
+            x: Left coordinate of the region.
+            y: Top coordinate of the region.
             w: Region width in pixels.
             h: Region height in pixels.
-            data: Bytearray buffer containing 16-bit RGB565 pixel data.
-
-        Returns:
-            None
+            data: Pixel buffer containing RGB565 color data.
         """
-        self.image(x, y, x + w - 1, y + h - 1, data)
+        self.image(x0=x, y0=y, x1=x + w - 1, y1=y + h - 1, data=data)
 
-    def line(self, start: tuple[int, int], end: tuple[int, int], color: int):
-        """
-        Draw a straight line between two points using Bresenham's algorithm or optimized axis methods.
+    def line(self, *, start: tuple[int, int], end: tuple[int, int], color: int):
+        """Draw a line between two coordinates.
+
+        Uses optimized horizontal and vertical line drawing for axis-aligned
+        lines and an incremental line algorithm for diagonal lines.
 
         Args:
-            start: Starting coordinate tuple (x, y).
-            end: Ending coordinate tuple (x, y).
-            color: 16-bit RGB565 line color value.
-
-        Returns:
-            None
+            start: Starting coordinate as (x, y).
+            end: Ending coordinate as (x, y).
+            color: Line color in 16-bit RGB565 format.
         """
-
         if start[0] == end[0]:
             pnt = end if (end[1] < start[1]) else start
-            self.vline(pnt, abs(end[1] - start[1]) + 1, color)
+            self.vline(pos=pnt, length=abs(end[1] - start[1]) + 1, color=color)
         elif start[1] == end[1]:
             pnt = end if end[0] < start[0] else start
-            self.hline(pnt, abs(end[0] - start[0]) + 1, color)
+            self.hline(pos=pnt, length=abs(end[0] - start[0]) + 1, color=color)
         else:
             sx, sy = start
             ex, ey = end
@@ -304,17 +290,13 @@ class ST7735(Singleton):
                     e += dx
                     sy += iny
 
-    def vline(self, pos: tuple[int, int], length: int, color: int) -> None:
-        """
-        Draw a fast vertical line starting from a given position.
+    def vline(self, *, pos: tuple[int, int], length: int, color: int) -> None:
+        """Draw a vertical line.
 
         Args:
-            pos: Top-left coordinate tuple (x, y).
-            length: Line height length in pixels.
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Starting coordinate as (x, y).
+            length: Line length in pixels.
+            color: Line color in 16-bit RGB565 format.
         """
         x, y = pos
 
@@ -331,17 +313,13 @@ class ST7735(Singleton):
         self._set_color(color)
         self._draw(length)
 
-    def hline(self, pos: tuple[int, int], length: int, color: int) -> None:
-        """
-        Draw a fast horizontal line starting from a given position.
+    def hline(self, *, pos: tuple[int, int], length: int, color: int) -> None:
+        """Draw a horizontal line.
 
         Args:
-            pos: Top-left coordinate tuple (x, y).
-            length: Line width length in pixels.
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Starting coordinate as (x, y).
+            length: Line length in pixels.
+            color: Line color in 16-bit RGB565 format.
         """
         x, y = pos
 
@@ -355,38 +333,29 @@ class ST7735(Singleton):
         self._set_color(color)
         self._draw(length)
 
-    def rect(self, pos: tuple[int, int], size: tuple[int, int], color: int) -> None:
-        """
-        Draw an unfilled rectangle outline.
+    def rect(self, *, pos: tuple[int, int], size: tuple[int, int], color: int) -> None:
+        """Draw an unfilled rectangle outline.
 
         Args:
-            pos: Top-left coordinate tuple (x, y).
-            size: Dimension tuple (width, height).
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Top-left coordinate as (x, y).
+            size: Rectangle dimensions as (width, height).
+            color: Outline color in 16-bit RGB565 format.
         """
+        self.hline(pos=pos, length=size[0], color=color)
+        self.hline(pos=(pos[0], pos[1] + size[1] - 1), length=size[0], color=color)
 
-        self.hline(pos, size[0], color)
-        self.hline((pos[0], pos[1] + size[1] - 1), size[0], color)
-
-        self.vline(pos, size[1], color)
-        self.vline((pos[0] + size[0] - 1, pos[1]), size[1], color)
+        self.vline(pos=pos, length=size[1], color=color)
+        self.vline(pos=(pos[0] + size[0] - 1, pos[1]), length=size[1], color=color)
 
     def fill_rect(
-        self, pos: tuple[int, int], size: tuple[int, int], color: int
+        self, *, pos: tuple[int, int], size: tuple[int, int], color: int
     ) -> None:
-        """
-        Draw a solid filled rectangle.
+        """Draw a filled rectangle.
 
         Args:
-            pos: Top-left coordinate tuple (x, y).
-            size: Dimension tuple (width, height).
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Top-left coordinate as (x, y).
+            size: Rectangle dimensions as (width, height).
+            color: Fill color in 16-bit RGB565 format.
         """
         start = (
             utils.clamp(pos[0], 0, self._size[0]),
@@ -411,17 +380,15 @@ class ST7735(Singleton):
         self._set_color(color)
         self._draw(pixels)
 
-    def circle(self, pos: tuple[int, int], radius: int, color: int) -> None:
-        """
-        Draw an unfilled circle outline using symmetry algorithm.
+    def circle(self, *, pos: tuple[int, int], radius: int, color: int) -> None:
+        """Draw an unfilled circle outline.
+
+        Uses circle symmetry to calculate and draw the perimeter pixels.
 
         Args:
-            pos: Center coordinate tuple (x, y).
-            radius: Radius of the circle in pixels.
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Circle center coordinate as (x, y).
+            radius: Circle radius in pixels.
+            color: Outline color in 16-bit RGB565 format.
         """
         self._color_data[0] = color >> 8
         self._color_data[1] = color
@@ -458,17 +425,15 @@ class ST7735(Singleton):
         self._set_window_point((xyn, yxn))
         self._data(self._color_data)
 
-    def fill_circle(self, pos: tuple[int, int], radius: int, color: int) -> None:
-        """
-        Draw a solid filled circle using vertical scan lines.
+    def fill_circle(self, *, pos: tuple[int, int], radius: int, color: int) -> None:
+        """Draw a filled circle.
+
+        Uses vertical scan lines to fill the circle interior.
 
         Args:
-            pos: Center coordinate tuple (x, y).
-            radius: Radius of the circle in pixels.
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            pos: Circle center coordinate as (x, y).
+            radius: Circle radius in pixels.
+            color: Fill color in 16-bit RGB565 format.
         """
         self._color_data[0] = color >> 8
         self._color_data[1] = color
@@ -481,48 +446,39 @@ class ST7735(Singleton):
             y0 = utils.clamp(y0, 0, self._size[1])
             ln = abs(ey - y0) + 1
 
-            self.vline((pos[0] + x, y0), ln, color)
-            self.vline((pos[0] - x, y0), ln, color)
+            self.vline(pos=(pos[0] + x, y0), length=ln, color=color)
+            self.vline(pos=(pos[0] - x, y0), length=ln, color=color)
 
     def fill(self, color: int) -> None:
-        """
-        Clear and fill the entire screen canvas with a uniform color.
+        """Fill the entire display with a solid color.
 
         Args:
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            color: Fill color in 16-bit RGB565 format.
         """
-        self.fill_rect((0, 0), self._size, color)
+        self.fill_rect(pos=(0, 0), size=self._size, color=color)
 
-    def image(self, x0: int, y0: int, x1: int, y1: int, data: bytearray) -> None:
-        """
-        Send raw pixel bytearray data directly to a defined window bounding box.
+    def image(self, *, x0: int, y0: int, x1: int, y1: int, data: bytearray) -> None:
+        """Draw a raw pixel buffer within the specified rectangular region.
 
         Args:
-            x0: Left boundary pixel coordinate.
-            y0: Top boundary pixel coordinate.
-            x1: Right boundary pixel coordinate.
-            y1: Bottom boundary pixel coordinate.
-            data: Bytearray buffer of pixel colors.
-
-        Returns:
-            None
+            x0: Left boundary coordinate.
+            y0: Top boundary coordinate.
+            x1: Right boundary coordinate.
+            y1: Bottom boundary coordinate.
+            data: Pixel buffer containing RGB565 color data.
         """
         self._set_window_loc((x0, y0), (x1, y1))
         self._data(data)
 
-    def setvscroll(self, tfa: int, bfa: int) -> None:
-        """
-        Configure hardware vertical scrolling area definition parameters.
+    def setvscroll(self, *, tfa: int, bfa: int) -> None:
+        """Configure the display's vertical scrolling area.
+
+        Defines the fixed top and bottom regions that remain unaffected
+        by vertical scrolling.
 
         Args:
-            tfa: Top Fixed Area height in pixels.
-            bfa: Bottom Fixed Area height in pixels.
-
-        Returns:
-            None
+            tfa: Top fixed area height in pixels.
+            bfa: Bottom fixed area height in pixels.
         """
         self._cmd(ST7735.VSCRDEF)
 
@@ -539,14 +495,13 @@ class ST7735(Singleton):
         self._bfa = bfa
 
     def vscroll(self, value: int) -> None:
-        """
-        Scroll screen content vertically by a designated pixel offset.
+        """Set the vertical scroll position.
+
+        Calculates the scroll start address while respecting the configured
+        top and bottom fixed areas.
 
         Args:
-            value: Vertical scroll pixel shift value.
-
-        Returns:
-            None
+            value: Vertical scroll offset in pixels.
         """
         a = value + self._tfa
 
@@ -556,41 +511,39 @@ class ST7735(Singleton):
         self._vscrolladdr(a)
 
     def _vscrolladdr(self, addr: int) -> None:
-        """Send vertical scroll start address register command.
+        """Set the vertical scrolling start address.
+
+        Writes the specified address to the display's vertical scroll
+        start address register.
 
         Args:
-            addr: Memory line start address.
-
-        Returns:
-            None
+            addr: Display memory line address.
         """
         self._cmd(ST7735.VSCSAD)
         data2 = bytearray([addr >> 8, addr & 0xFF])
         self._data(data2)
 
     def _set_color(self, color: int):
-        """
-        Prepare internal 16-bit color byte structure and duplicate into block write buffers.
+        """Prepare the internal color buffers for repeated pixel drawing.
+
+        Converts the RGB565 color into two bytes and creates a reusable
+        buffer containing repeated copies of that color.
 
         Args:
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            color: Color value in 16-bit RGB565 format.
         """
         self._color_data[0] = color >> 8
         self._color_data[1] = color
         self._buf = bytes(self._color_data) * 32
 
     def _draw(self, pixels: int):
-        """
-        Flush pre-calculated color buffers across SPI to render pixel blocks.
+        """Write repeated color data to the display over SPI.
+
+        Transmits the prepared color buffer for the requested number of
+        pixels, followed by any remaining pixel data.
 
         Args:
-            pixels: Total count of pixels to transmit.
-
-        Returns:
-            None
+            pixels: Number of pixels to draw.
         """
         self.dc.value(1)
         self.cs.value(0)
@@ -606,14 +559,12 @@ class ST7735(Singleton):
         self.cs(1)
 
     def _cmd(self, cmd: int) -> None:
-        """
-        Transmit a single command byte over SPI with DC pin pulled LOW.
+        """Send a command byte to the display over SPI.
+
+        Sets the data/command pin to command mode before transmission.
 
         Args:
-            cmd: Register command byte.
-
-        Returns:
-            None
+            cmd: Display controller command byte.
         """
         self.dc.value(0)
         self.cs.value(0)
@@ -621,14 +572,12 @@ class ST7735(Singleton):
         self.cs.value(1)
 
     def _data(self, data: bytearray) -> None:
-        """
-        Transmit data payload buffer over SPI with DC pin pulled HIGH.
+        """Send data to the display over SPI.
+
+        Sets the data/command pin to data mode before transmission.
 
         Args:
-            data: Bytearray buffer containing data payload.
-
-        Returns:
-            None
+            data: Byte buffer containing the data to transmit.
         """
         self.dc.value(1)
         self.cs.value(0)
@@ -636,22 +585,18 @@ class ST7735(Singleton):
         self.cs.value(1)
 
     def _set_MADCTL(self) -> None:
-        """
-        Update Memory Data Access Control (MADCTL) register for screen orientation and color modes.
+        """Update the display Memory Data Access Control register.
 
-        Returns:
-            None
+        Applies the current rotation and RGB/BGR color order settings.
         """
         self._cmd(ST7735.MADCTL)
         rgb = RGB if self._rgb else BGR
         self._data(bytearray([Rotations[self._rotate] | rgb]))
 
     def _reset(self) -> None:
-        """
-        Perform a hardware pin toggle reset sequence on the display module.
+        """Perform a hardware reset of the display controller.
 
-        Returns:
-            None
+        Toggles the reset pin with the required delays between transitions.
         """
         self.rs.value(1)
         time.sleep(0.05)
@@ -661,14 +606,13 @@ class ST7735(Singleton):
         time.sleep(0.15)
 
     def _set_window_point(self, pos: tuple[int, int]) -> None:
-        """
-        Set active window bounding bounds to target a single pixel coordinate.
+        """Set the active display window to a single pixel.
+
+        Applies display offsets and configures the column and row address
+        registers before enabling memory write mode.
 
         Args:
-            pos: Pixel coordinate tuple (x, y).
-
-        Returns:
-            None
+            pos: Pixel coordinate as (x, y).
         """
         x = self._offset[0] + int(pos[0])
         y = self._offset[1] + int(pos[1])
@@ -690,15 +634,14 @@ class ST7735(Singleton):
         self._cmd(ST7735.RAMWR)
 
     def _set_window_loc(self, pos_0: tuple[int, int], pos_1: tuple[int, int]) -> None:
-        """
-        Set CASET/RASET address registers to define a rectangular drawing region window.
+        """Set the active rectangular display window.
+
+        Applies display offsets and configures the column and row address
+        registers before enabling memory write mode.
 
         Args:
-            pos_0: Top-left coordinate tuple (x, y).
-            pos_1: Bottom-right coordinate tuple (x, y).
-
-        Returns:
-            None
+            pos_0: Top-left coordinate as (x, y).
+            pos_1: Bottom-right coordinate as (x, y).
         """
         x0 = self._offset[0] + int(pos_0[0])
         x1 = self._offset[0] + int(pos_1[0])
@@ -722,25 +665,20 @@ class ST7735(Singleton):
         self._cmd(ST7735.RAMWR)
 
     def _pushcolor(self, color: int) -> None:
-        """
-        Push 16-bit color byte data to display RAM.
+        """Write a single RGB565 color value to display memory.
 
         Args:
-            color: 16-bit RGB565 color value.
-
-        Returns:
-            None
+            color: Color value in 16-bit RGB565 format.
         """
         self._color_data[0] = color >> 8
         self._color_data[1] = color
         self._data(self._color_data)
 
     def init(self) -> None:
-        """
-        Execute full hardware initialization sequence and reset display panel configuration registers.
+        """Initialize the display controller.
 
-        Returns:
-            None
+        Performs a hardware reset, exits sleep mode, configures frame timing,
+        power control, color mode, orientation, and display output.
         """
         self._reset()
 
@@ -796,11 +734,9 @@ class ST7735(Singleton):
         self.cs.value(1)
 
     def deinit(self) -> None:
-        """
-        Deinitialize the display and release SPI resources.
+        """Put the display into sleep mode.
 
-        Returns:
-            None
+        Sends the sleep-in command and releases the chip-select line.
         """
         self._cmd(ST7735.SLPIN)
         time.sleep(0.1)
