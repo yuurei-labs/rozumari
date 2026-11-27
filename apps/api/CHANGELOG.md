@@ -1,3 +1,11 @@
+## @rozumari/api@0.2.9
+
+### Patch Changes
+
+- Fixed SSE connection drops caused by Vercel's connection duration limits.
+- Increased SSE keep-alive interval to 20 seconds to improve connection stability.
+- Added Google-style docstrings to Python firmware modules.
+
 ## @rozumari/api@0.2.8
 
 ### Patch Change

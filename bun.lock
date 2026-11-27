@@ -14,7 +14,7 @@
     },
     "apps/api": {
       "name": "@rozumari/api",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "bin": "./dist/cli.mjs",
       "dependencies": {
         "@chat-adapter/messenger": "^4.45.0",
@@ -41,7 +41,7 @@
     },
     "apps/mobile": {
       "name": "@rozumari/mobile",
-      "version": "0.2.14",
+      "version": "0.2.15",
       "dependencies": {
         "@effect/atom-react": "catalog:effect",
         "@expo-google-fonts/geist": "~0.4.2",
@@ -85,7 +85,7 @@
     },
     "apps/web": {
       "name": "@rozumari/web",
-      "version": "0.2.10",
+      "version": "0.2.11",
       "dependencies": {
         "@effect/atom-react": "catalog:effect",
         "@react-router/dev": "^8.5.3",
@@ -134,7 +134,7 @@
     },
     "packages/firmware": {
       "name": "@rozumari/firmware",
-      "version": "0.2.10",
+      "version": "0.2.11",
     },
     "packages/lib": {
       "name": "@rozumari/lib",
