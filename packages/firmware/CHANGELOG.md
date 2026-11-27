@@ -1,3 +1,9 @@
+## @rozumari/firmware@0.2.13
+
+### Bug Fixes
+
+- Wrong i18n key
+
 ## @rozumari/firmware@0.2.12
 
 ### Patch Changes
