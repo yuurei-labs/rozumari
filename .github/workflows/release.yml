@@ -14,7 +14,7 @@ env:
 
 jobs:
   release:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: ${{ github.repository_owner == 'yuurei-labs' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
