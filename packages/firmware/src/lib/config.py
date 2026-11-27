@@ -6,6 +6,11 @@ from lib.singleton import Singleton
 
 class Config(Singleton):
     def __init__(self, path: str = "/data/config.json") -> None:
+        """Initialize the configuration manager.
+
+        Args:
+            path: Path to the JSON configuration file.
+        """
         super().__init__()
         if hasattr(self, "_data"):
             return
@@ -15,6 +20,11 @@ class Config(Singleton):
         self._ensure_dir()
 
     def load(self) -> None:
+        """Load configuration from the JSON file.
+
+        Merges loaded values with default configuration values. If the file does
+        not exist, initializes the default configuration and saves it.
+        """
         try:
             with open(self._path, "r") as f:
                 loaded = json.load(f)
@@ -32,6 +42,11 @@ class Config(Singleton):
             self._data = {k: v.copy() for k, v in self._DEFAULT.items()}
 
     def save(self) -> bool:
+        """Save the current configuration to the JSON file.
+
+        Returns:
+            True if the configuration was saved successfully, otherwise False.
+        """
         try:
             with open(self._path, "w") as f:
                 json.dump(self._data, f)
@@ -40,6 +55,12 @@ class Config(Singleton):
             return False
 
     def update(self, section: str, values: dict) -> None:
+        """Update values in a configuration section and save the changes.
+
+        Args:
+            section: Name of the configuration section.
+            values: Configuration values to update.
+        """
         if section in self._data:
             self._data[section].update(values)
 
@@ -47,25 +68,31 @@ class Config(Singleton):
 
     @property
     def general(self) -> dict:
+        """Return the general configuration section."""
         return self._data["general"]
 
     @property
     def wifi(self) -> dict:
+        """Return the Wi-Fi configuration section."""
         return self._data["wifi"]
 
     @property
     def api(self) -> dict:
+        """Return the API configuration section."""
         return self._data["api"]
 
     @property
     def device(self) -> dict:
+        """Return the device configuration section."""
         return self._data["device"]
 
     @property
     def timeout(self) -> dict:
+        """Return the timeout configuration section."""
         return self._data["timeout"]
 
     def _ensure_dir(self) -> None:
+        """Ensure the parent directory of the configuration file exists."""
         folder = self._path.rpartition("/")[0]
         if not folder:
             return

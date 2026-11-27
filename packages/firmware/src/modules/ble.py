@@ -16,20 +16,11 @@ _TX_CHAR_UUID = UUID("21F3B000-609B-498B-9079-86AE7AE31A28")
 
 
 class BLE(Singleton):
-    """Manages Bluetooth Low Energy (BLE) connections for the IoT system using aioble.
-
-    Implements the Singleton pattern to guarantee that only a single BLE
-    driver instance is initialized and controlled throughout the application lifecycle.
-    """
-
     def __init__(self, name: str) -> None:
-        """Initializes the GATTS service configuration and background task structures.
+        """Initialize the BLE manager and register its GATT services.
 
         Args:
-            name (str): The local name of the device displayed during advertising.
-
-        Returns:
-            None
+            name: Bluetooth device name.
         """
         super().__init__()
         self._name = name
@@ -59,6 +50,11 @@ class BLE(Singleton):
         self._is_advertising = False
 
     def get_mac(self):
+        """Get the Bluetooth device MAC address.
+
+        Returns:
+            MAC address in uppercase hexadecimal format, or "Unknown" if unavailable.
+        """
         try:
             from bluetooth import BLE as _BLE
 
@@ -68,10 +64,9 @@ class BLE(Singleton):
             return "Unknown"
 
     def start(self) -> None:
-        """Activates BLE and launches the background async tasks.
+        """Start BLE advertising and the RX processing task.
 
-        Returns:
-            None
+        Does nothing if BLE advertising is already active.
         """
         if self._is_advertising:
             return
@@ -84,11 +79,7 @@ class BLE(Singleton):
         self._rx_task = loop.create_task(self._rx_loop())
 
     def stop(self) -> None:
-        """Stops advertising, cancels tasks, and disconnects all clients.
-
-        Returns:
-            None
-        """
+        """Stop BLE advertising, cancel background tasks, and disconnect clients."""
         self._is_advertising = False
 
         if hasattr(self, "_advertising_task") and self._advertising_task:
@@ -109,18 +100,15 @@ class BLE(Singleton):
 
     @property
     def status(self) -> bool:
-        """Checks if the BLE module is currently active and running.
-
-        Returns:
-            bool: True if advertising is active, False otherwise.
-        """
+        """Return whether BLE advertising is currently active."""
         return self._is_advertising
 
     async def _advertising_loop(self) -> None:
-        """Background task running the advertising loop cleanly.
+        """Continuously advertise the BLE service and handle client connections.
 
-        Returns:
-            None
+        Handles incoming connections, negotiates the MTU, sends the initial
+        configuration, and waits for clients to disconnect. Automatically
+        retries advertising when an unexpected error occurs.
         """
         config = Config()
         self._name = config.device.get("name", "")
@@ -164,10 +152,10 @@ class BLE(Singleton):
                     break
 
     async def _rx_loop(self) -> None:
-        """Background task that waits and reads incoming BLE writes sequentially.
+        """Continuously listen for incoming BLE write events.
 
-        Returns:
-            None
+        Reads received characteristic data, decodes UTF-8 messages, and
+        forwards valid messages to the BLE service for execution.
         """
         while self._is_advertising:
             try:
@@ -190,10 +178,10 @@ class BLE(Singleton):
                 await asyncio.sleep_ms(100)
 
     def _send(self, msg: str) -> None:
-        """Sends a notification payload back to all active connections.
+        """Send a message to all connected BLE clients through notifications.
 
         Args:
-            msg (str): The text message to send.
+            msg: Message to encode and transmit as UTF-8 data.
         """
         if not self._is_advertising or not self._connections:
             return

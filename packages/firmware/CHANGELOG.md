@@ -1,3 +1,35 @@
+## @rozumari/firmware@0.2.12
+
+### Patch Changes
+
+- Trigger build
+
+## @rozumari/firmware@0.2.11
+
+### Patch Changes
+
+- Fixed SSE connection drops caused by Vercel's connection duration limits.
+- Increased SSE keep-alive interval to 20 seconds to improve connection stability.
+- Added Google-style docstrings to Python firmware modules.
+
+## @rozumari/firmware@0.2.10
+
+### Bug Fixes
+
+- gc collect make it crash
+
+## @rozumari/firmware@0.2.9
+
+### Bug Fixes
+
+- build error
+
+## @rozumari/firmware@0.2.8
+
+### Bug Fixes
+
+- Missing lib
+
 ## @rozumari/firmware@0.2.7
 
 ### Patch Changes

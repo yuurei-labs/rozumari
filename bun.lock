@@ -14,7 +14,7 @@
     },
     "apps/api": {
       "name": "@rozumari/api",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "bin": "./dist/cli.mjs",
       "dependencies": {
         "@chat-adapter/messenger": "^4.45.0",
@@ -41,7 +41,7 @@
     },
     "apps/mobile": {
       "name": "@rozumari/mobile",
-      "version": "0.2.13",
+      "version": "0.2.16",
       "dependencies": {
         "@effect/atom-react": "catalog:effect",
         "@expo-google-fonts/geist": "~0.4.2",
@@ -85,7 +85,7 @@
     },
     "apps/web": {
       "name": "@rozumari/web",
-      "version": "0.2.10",
+      "version": "0.2.11",
       "dependencies": {
         "@effect/atom-react": "catalog:effect",
         "@react-router/dev": "^8.5.3",
@@ -134,7 +134,7 @@
     },
     "packages/firmware": {
       "name": "@rozumari/firmware",
-      "version": "0.2.7",
+      "version": "0.2.12",
     },
     "packages/lib": {
       "name": "@rozumari/lib",
@@ -217,7 +217,7 @@
     },
     "prod": {
       "@tanstack/react-query": "^5.108.4",
-      "@tiesen/effect-tanstack-query": "^0.0.28",
+      "@tiesen/effect-tanstack-query": "^0.0.29",
       "react-native-safe-area-context": "~5.11.1",
       "react-native-svg": "~15.16.0",
     },
@@ -895,7 +895,7 @@
 
     "@tanstack/react-query": ["@tanstack/react-query@5.108.4", "", { "dependencies": { "@tanstack/query-core": "5.108.4" }, "peerDependencies": { "@types/react": "^18 || ^19", "react": "^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-GlTa94kfEKTVsbzXe58rFA3GZ0ZE7N1aFtbZAfOS3XxMv8YNn4C+8rsz40LorHLazdm5PsqCroWaYAR+ZkMXMQ=="],
 
-    "@tiesen/effect-tanstack-query": ["@tiesen/effect-tanstack-query@0.0.28", "", { "peerDependencies": { "@tanstack/query-core": ">=5.108.4", "effect": ">=4.1.5", "react": ">=19.0.0", "vue": ">=3.5.43" }, "optionalPeers": ["react", "vue"] }, "sha512-If64SjHncffuzjkKKfe1+or3wHAHtytwiJCD6R+fxX2rHP5Rrpf3x71P1pIoQOgaOos944fjXUTU33kw4V/oHw=="],
+    "@tiesen/effect-tanstack-query": ["@tiesen/effect-tanstack-query@0.0.29", "", { "peerDependencies": { "@tanstack/query-core": ">=5.108.4", "effect": ">=4.1.5", "react": ">=19.0.0", "vue": ">=3.5.43" }, "optionalPeers": ["react", "vue"] }, "sha512-uDpmY/bfHceb+jRu+1VruPmQ79PbvlgXKZ0ZkWEtDG/LKcwrtozulZ4GnVcYY8a/qIoyfmZ2fNRVEiBJ+ntc5w=="],
 
     "@ts-morph/common": ["@ts-morph/common@0.11.1", "", { "dependencies": { "fast-glob": "^3.2.7", "minimatch": "^3.0.4", "mkdirp": "^1.0.4", "path-browserify": "^1.0.1" } }, "sha512-7hWZS0NRpEsNV8vWJzg7FEz6V8MaLNeJOmwmghqUXTpzk16V1LLZhdo+4QvE/+zv4cVci0OviuJFnqhEfoV3+g=="],
 

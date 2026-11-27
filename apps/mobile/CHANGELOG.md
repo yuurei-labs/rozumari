@@ -1,3 +1,23 @@
+## @rozumari/mobile@0.2.16
+
+### Patch Changes
+
+- Trigger build
+
+## @rozumari/mobile@0.2.15
+
+### Patch Changes
+
+- Fixed SSE connection drops caused by Vercel's connection duration limits.
+- Increased SSE keep-alive interval to 20 seconds to improve connection stability.
+- Added Google-style docstrings to Python firmware modules.
+
+## @rozumari/mobile@0.2.14
+
+### Bug Fixes
+
+- build error
+
 ## @rozumari/mobile@0.2.13
 
 ### Patch Changes

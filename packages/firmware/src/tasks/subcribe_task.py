@@ -21,26 +21,53 @@ except Exception:
 
 class SubcribeTask(Singleton):
     def __init__(self) -> None:
+        """Initialize the subscription task and its API and notification services."""
         super().__init__()
 
         self._api = Api()
         self._notify = Notify()
         self._logger = Logger("Subcribe")
 
-    async def execute(self):
-        await self._api.subcribe("/api/devices/subscribe", self._on_message, timeout=15)
+    async def execute(self) -> None:
+        """Start listening for device subscription messages.
+
+        Subscribes to the device endpoint and registers the message handler.
+        Automatically reconnects after connection loss using the configured
+        reconnection interval, retry delay, and timeout.
+        """
+        self._logger.info("Subcribe processor task started.")
+        await self._api.subcribe(
+            "/api/devices/subscribe",
+            self._on_message,
+            reconnect_after=240,
+            retry_delay=3,
+            timeout=30,
+        )
 
     async def _on_message(self, msg: str) -> None:
+        """Process an incoming subscription message.
+
+        Parses the JSON message and dispatches the requested action. Supported
+        actions include controlling the LED, synchronizing device information,
+        synchronizing schedules, and executing drop operations.
+
+        Emits notifications to report operation progress and results. Invalid
+        messages or processing errors are caught, and garbage collection is
+        performed after message handling.
+
+        Args:
+            msg: The incoming message encoded as a JSON string.
+        """
         command: dict | None = None
 
         try:
+            gc.collect()
             command = json.loads(msg)
             if command is None:
                 return
 
-            self._logger.info(f"Received: {msg}")
-
             action = command.get("action")
+            self._logger.info(f"Received action: {action}")
 
             if action == "led":
                 payload = command.get("payload", "0")
@@ -53,7 +80,7 @@ class SubcribeTask(Singleton):
                     {"type": "info", "content": _t("emit_sync_info_received")}
                 )
 
-                await asyncio.sleep(500)
+                await asyncio.sleep_ms(500)
                 if await SyncInfo().execute():
                     self._logger.info("Info synced!")
                     await self._notify.emit(
@@ -72,7 +99,7 @@ class SubcribeTask(Singleton):
                     {"type": "info", "content": _t("emit_sync_schedule_received")}
                 )
 
-                await asyncio.sleep(500)
+                await asyncio.sleep_ms(500)
                 if await SyncSchedule().execute():
                     self._logger.info("Schedule synced!")
                     await self._notify.emit(
@@ -88,32 +115,32 @@ class SubcribeTask(Singleton):
                 await self._notify.emit(
                     {"type": "info", "content": _t("emit_drop_received")}
                 )
+
                 raw_items = command.get("payload", [])
-                items: list[Item] = [
-                    {
-                        "slot": str(item.get("slot", "")),
-                        "medicine": str(item.get("medicine", "")),
-                        "quantity": int(item.get("quantity", 1)),
-                        "isRequired": True,
-                    }
+                if not isinstance(raw_items, list):
+                    raise ValueError("Drop payload must be a list")
+
+                items: list[Item] = (  # pyright: ignore[reportAssignmentType]
+                    item
                     for item in raw_items
                     if isinstance(item, dict) and item.get("slot")
-                ]
+                )
 
-                await asyncio.sleep(500)
+                await asyncio.sleep_ms(500)
                 if await Drop().execute(items):
                     self._logger.info("Drop success!")
                     await self._notify.emit(
                         {"type": "success", "content": _t("emit_drop_success")}
                     )
                 else:
-                    self._logger.info("Drop failed!")
+                    self._logger.error("Drop failed!")
                     await self._notify.emit(
                         {"type": "error", "content": _t("emit_drop_failed")}
                     )
 
-        except Exception as e:
-            self._logger.error(f"Error handling message: {e}")
+        except Exception:
+            gc.collect()
+
         finally:
             if command is not None:
                 del command

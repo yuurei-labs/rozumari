@@ -1,60 +1,46 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@rozumari/mobile:\n    type: patch\n  npm:@rozumari/firmware:\n    type: patch\n  npm:@rozumari/oxlint:\n    type: patch\n---\n\n## Patch Changes\n\n- Refractor firmware\n- Added new bluetooth communicate\n"
-    filename: 2026-11-26-mwxpd4e0.md
-    v: 0.0.0
-  - content: "---\npackages:\n  npm:@rozumari/mobile:\n    type: patch\n  npm:@rozumari/web:\n    type: patch\n  npm:@rozumari/firmware:\n    type: patch\n---\n\n## Patch Changes\n\n- Fix default value of update form\n- Added i18n\n"
-    filename: 2026-11-26-mwxr9236.md
-    v: 0.0.0
   - content: "---\npackages:\n  npm:@rozumari/mobile:\n    type: patch\n  npm:@rozumari/firmware:\n    type: patch\n---\n\n## Patch Changes\n\n- Trigger build\n"
-    filename: 2026-11-25-mwvfbbt4.md
+    filename: 2026-11-27-mwylzbxp.md
     v: 0.0.0
 core:packages:
   - id: npm:rozumari
     updated: false
-  - changelogIds:
-      - 2026-11-26-mwxpd4e0.md
-    id: npm:@rozumari/oxlint
-    updated: true
+  - id: npm:@rozumari/eda
+    updated: false
   - id: npm:@rozumari/ui
     updated: false
   - changelogIds:
-      - 2026-11-26-mwxr9236.md
-    id: npm:@rozumari/web
+      - 2026-11-27-mwylzbxp.md
+    id: npm:@rozumari/firmware
     updated: true
-  - id: npm:@rozumari/github
+  - id: npm:@rozumari/web
     updated: false
   - changelogIds:
-      - 2026-11-25-mwvfbbt4.md
-      - 2026-11-26-mwxpd4e0.md
-      - 2026-11-26-mwxr9236.md
-    id: npm:@rozumari/firmware
+      - 2026-11-27-mwylzbxp.md
+    id: npm:@rozumari/mobile
     updated: true
   - id: npm:@rozumari/lib
     updated: false
-  - changelogIds:
-      - 2026-11-25-mwvfbbt4.md
-      - 2026-11-26-mwxpd4e0.md
-      - 2026-11-26-mwxr9236.md
-    id: npm:@rozumari/mobile
-    updated: true
-  - id: npm:@rozumari/tsconfig
+  - id: npm:@rozumari/github
     updated: false
-  - id: npm:@rozumari/eda
+  - id: npm:@rozumari/oxlint
+    updated: false
+  - id: npm:@rozumari/contract
     updated: false
   - id: npm:@rozumari/api
     updated: false
-  - id: npm:@rozumari/contract
+  - id: npm:@rozumari/tsconfig
     updated: false
 npm:packages:
   - id: npm:rozumari
-  - id: npm:@rozumari/oxlint
-  - id: npm:@rozumari/ui
-  - id: npm:@rozumari/web
-  - id: npm:@rozumari/github
-  - id: npm:@rozumari/firmware
-  - id: npm:@rozumari/lib
-  - id: npm:@rozumari/mobile
-  - id: npm:@rozumari/tsconfig
   - id: npm:@rozumari/eda
-  - id: npm:@rozumari/api
+  - id: npm:@rozumari/ui
+  - id: npm:@rozumari/firmware
+  - id: npm:@rozumari/web
+  - id: npm:@rozumari/mobile
+  - id: npm:@rozumari/lib
+  - id: npm:@rozumari/github
+  - id: npm:@rozumari/oxlint
   - id: npm:@rozumari/contract
+  - id: npm:@rozumari/api
+  - id: npm:@rozumari/tsconfig

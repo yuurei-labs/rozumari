@@ -1,1 +1,1 @@
-freeze("$(PORT_DIR)/modules")
+include("$(BOARD_DIR)/manifest.py")

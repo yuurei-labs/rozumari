@@ -44,7 +44,7 @@
     },
     "prod": {
       "@tanstack/react-query": "^5.108.4",
-      "@tiesen/effect-tanstack-query": "^0.0.28",
+      "@tiesen/effect-tanstack-query": "^0.0.29",
       "react-native-safe-area-context": "~5.11.1",
       "react-native-svg": "~15.16.0"
     },
