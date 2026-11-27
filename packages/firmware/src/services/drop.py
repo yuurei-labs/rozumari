@@ -184,7 +184,7 @@ class Drop(Singleton):
 
             while time.ticks_diff(time.ticks_ms(), start_check_ms) < close_timeout_ms:
                 if self._check_detected or self._sensor_check.value() == 0:
-                    msg = _t("notify_untaken_medicine")
+                    msg = _t("notify_untaken")
                     self._logger.error(msg)
                     self._stepper_discard.rotate(1 / 16, direction="ccw")
                     await self._notify.send(
@@ -207,9 +207,7 @@ class Drop(Singleton):
         self._stepper_discard.rotate(1 / 16, direction="ccw")
 
         if self.optional_failures:
-            msg = _t(
-                "notify_dispense_optional_failures", count=len(self.optional_failures)
-            )
+            msg = _t("notify_optional_failures", count=len(self.optional_failures))
 
             self._logger.warning(msg)
             await self._notify.send(
@@ -222,7 +220,7 @@ class Drop(Singleton):
                 schedule_id=schedule_id,
             )
         else:
-            msg = _t("notify_dispense_success")
+            msg = _t("notify_success")
             self._logger.info(msg)
             await self._notify.send(
                 level="info",
